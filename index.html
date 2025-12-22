@@ -735,16 +735,14 @@
                 );
             };
 
-            if (loading) {
-                return (
-                    <div className="min-h-screen bg-black flex items-center justify-center text-cyan-500">
-                        <div className="flex flex-col items-center gap-4">
-                            <Activity className="animate-bounce w-10 h-10" />
-                            <span className="text-sm font-mono tracking-widest uppercase text-zinc-600">Loading Data...</span>
-                        </div>
-                    </div>
-                );
-            }
+            useEffect(() => {
+  const timeout = setTimeout(() => {
+    setLoading(false);
+  }, 1500);
+
+  return () => clearTimeout(timeout);
+}, []);
+
 
             return (
                 <div className="max-w-5xl mx-auto px-4 py-8">
@@ -821,4 +819,5 @@
     </script>
 </body>
 </html>
+
 
