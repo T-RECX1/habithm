@@ -507,6 +507,85 @@ const StatCard = ({ icon: Icon, title, value, subtitle }) => (
                 const currMonthAvg = currMonthCount ? currMonthSum / currMonthCount : 0;
                 const prevMonthAvg = prevMonthCount ? prevMonthSum / prevMonthCount : 0;
                 const trendDiff = Math.round(currMonthAvg - prevMonthAvg);
+// ------------------- EXTRA STATS -------------------
+
+let currentOverallStreak = 0;
+let longestOverallStreak = 0;
+let tempStreak = 0;
+
+let highPerformanceDays = 0;
+let lowPerformanceDays = 0;
+
+let focusSuccessDays = 0;
+let doomscrollSlipDays = 0;
+
+let shipDays = 0;
+let deepWorkAndShipDays = 0;
+
+let totalHabitChecks = 0;
+
+allDates.forEach(dateKey => {
+  const score = dailyScores[dateKey];
+  const dayData = data[dateKey];
+
+  if (score >= 80) highPerformanceDays++;
+  if (score <= 30) lowPerformanceDays++;
+
+  if (score >= 70) {
+    tempStreak++;
+    longestOverallStreak = Math.max(longestOverallStreak, tempStreak);
+  } else {
+    tempStreak = 0;
+  }
+
+  if (dayData.ship_something) shipDays++;
+  if (
+    (dayData.deep_work_1 || dayData.deep_work_2) &&
+    dayData.ship_something
+  ) {
+    deepWorkAndShipDays++;
+  }
+
+  if (dayData.zero_based_focus) focusSuccessDays++;
+  if (!dayData.no_doomscrolling) doomscrollSlipDays++;
+
+  HABITS.forEach(h => {
+    if (dayData[h.id]) totalHabitChecks++;
+  });
+});
+
+currentOverallStreak = tempStreak;
+
+const shipRate = totalEntries
+  ? Math.round((shipDays / totalEntries) * 100)
+  : 0;
+
+const deepWorkShipRate = shipDays
+  ? Math.round((deepWorkAndShipDays / shipDays) * 100)
+  : 0;
+
+const builderIndex = totalEntries
+  ? Math.round(
+      ((shipDays * 3) +
+      (habitCounts.deep_work_1 * 2) +
+      (habitCounts.deep_work_2 * 2) +
+      (habitCounts.money || 0)) / totalEntries
+    )
+  : 0;
+
+const meanScore = totalScoreSum / totalEntries;
+const variance =
+  Object.values(dailyScores).reduce(
+    (sum, s) => sum + Math.pow(s - meanScore, 2),
+    0
+  ) / totalEntries;
+
+const consistencyScore = Math.max(
+  0,
+  Math.round(100 - Math.sqrt(variance))
+);
+
+const xpLevel = Math.floor(totalHabitChecks / 50);
 
                 return {
                     totalLoggedDays: totalEntries,
@@ -519,7 +598,20 @@ const StatCard = ({ icon: Icon, title, value, subtitle }) => (
                     longestStreakHabit,
                     bestWeekday: DAYS_OF_WEEK[bestWeekdayIndex],
                     trendDiff,
-                    habitStats
+                    habitStats,
+                    currentOverallStreak,
+                    currentOverallStreak,
+                    longestOverallStreak,
+                    highPerformanceDays,
+                    lowPerformanceDays,
+                    consistencyScore,
+                    shipRate,
+                    deepWorkShipRate,
+                    builderIndex,
+                    focusSuccessDays,
+                    doomscrollSlipDays,
+                    totalHabitChecks,
+                    xpLevel
                 };
             }, [data]);
 
@@ -743,6 +835,21 @@ const StatCard = ({ icon: Icon, title, value, subtitle }) => (
                                                     <span className="text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">{habit.label}</span>
                                                     <span className="text-xs font-mono text-cyan-500">{habit.completionRate}%</span>
                                                 </div>
+                                                
+                                                {/* Extra Analytics */}
+<div className="md:col-span-4 grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+  <StatCard icon={Flame} title="Current Streak" value={`${stats.currentOverallStreak} days`} subtitle="≥70% completion" />
+  <StatCard icon={Flame} title="Longest Streak" value={`${stats.longestOverallStreak} days`} subtitle="All-time record" />
+  <StatCard icon={TrendingUp} title="Consistency Score" value={`${stats.consistencyScore}%`} subtitle="Stability over time" />
+
+  <StatCard icon={Target} title="Ship Rate" value={`${stats.shipRate}%`} subtitle="Days you shipped" />
+  <StatCard icon={Zap} title="Builder Index" value={stats.builderIndex} subtitle="Weighted creation score" />
+  <StatCard icon={ArrowUpRight} title="Deep Work → Ship" value={`${stats.deepWorkShipRate}%`} subtitle="Conversion rate" />
+
+  <StatCard icon={Activity} title="Focus Days" value={stats.focusSuccessDays} subtitle="Zero-based focus" />
+  <StatCard icon={AlertCircle} title="Doomscroll Slips" value={stats.doomscrollSlipDays} subtitle="Missed no-scroll rule" />
+  <StatCard icon={Crown} title="XP Level" value={`Lv ${stats.xpLevel}`} subtitle="50 checks per level" />
+</div>
                                                 <ProgressBar percentage={habit.completionRate} height="h-1.5" />
                                             </div>
                                         </div>
