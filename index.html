@@ -366,17 +366,21 @@
             }, [user]);
 
             const toggleHabit = (dateKey, habitId) => {
-                const currentDayData = data[dateKey] || {};
-                const isCompleted = currentDayData[habitId];
-                
-                // Optimistic Update
-                const newData = { ...data };
-                newData[dateKey] = { ...currentDayData, [habitId]: !isCompleted };
-                setData(newData);
+  const currentDayData = data[dateKey] || {};
+  const isCompleted = currentDayData[habitId];
 
-                localStorage.setItem("habitData", JSON.stringify(newData));
+  const newData = {
+    ...data,
+    [dateKey]: {
+      ...currentDayData,
+      [habitId]: !isCompleted
+    }
+  };
 
-            };
+  setData(newData);
+  localStorage.setItem("habitData", JSON.stringify(newData));
+};
+;
 
             /* STATS ENGINE */
             const stats = useMemo(() => {
@@ -821,6 +825,7 @@
     </script>
 </body>
 </html>
+
 
 
 
