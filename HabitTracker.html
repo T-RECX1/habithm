@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus.io - Habit Tracker</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind Configuration to ensure Zinc/Cyan/Black theme matches perfectly -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        zinc: {
+                            850: '#1f1f22',
+                            900: '#18181b',
+                            950: '#09090b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Scrollbar for the StatsFM feel */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #09090b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272a; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46; 
+        }
+        
+        body {
+            background-color: #000000;
+            color: #e4e4e7;
+        }
+        
+        .glass-panel {
+            background: rgba(24, 24, 27, 0.6);
+            backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-black text-zinc-200 antialiased min-h-screen">
+    <div id="root"></div>
+
+    <!-- Import Map for React, Firebase, and Icons -->
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "firebase/app": "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js",
+            "firebase/auth": "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js",
+            "firebase/firestore": "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js",
+            "lucide-react": "https://esm.sh/lucide-react@0.294.0"
+        }
+    }
+    </script>
+
+    <!-- Main Application Logic -->
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useMemo } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { initializeApp } from 'firebase/app';
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            signInWithCustomToken, 
+            onAuthStateChanged 
+        } from 'firebase/auth';
+        import { 
+            getFirestore, 
+            collection, 
+            doc, 
+            setDoc, 
+            onSnapshot 
+        } from 'firebase/firestore';
+        import { 
+            ChevronLeft, 
+            ChevronRight, 
+            Activity, 
+            Calendar, 
+            CheckCircle2, 
+            TrendingUp, 
+            Flame, 
+            Target, 
+            Zap, 
+            Layout, 
+            Dumbbell, 
+            Briefcase, 
+            Sun, 
+            DollarSign, 
+            BookOpen, 
+            Monitor, 
+            Trophy, 
+            AlertCircle, 
+            BarChart3, 
+            CalendarDays, 
+            ArrowUpRight, 
+            ArrowDownRight, 
+            Crown 
+        } from 'lucide-react';
+
+        /* -------------------------------------------------------------------------- */
+        /* FIREBASE SETUP                                                             */
+        /* -------------------------------------------------------------------------- */
+        
+        // Note: In the Preview Environment, these globals are provided.
+        // If running locally, you would replace these with your own Firebase Config object.
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : { apiKey: "demo-key", authDomain: "demo.firebaseapp.com", projectId: "demo" }; // Fallback for safety
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        /* -------------------------------------------------------------------------- */
+        /* CONSTANTS                                                                  */
+        /* -------------------------------------------------------------------------- */
+
+        const HABITS = [
+            { id: 'waking_up', label: 'Waking Up Early', icon: Sun },
+            { id: 'no_doomscrolling', label: 'No Doomscrolling', icon: Monitor },
+            { id: 'plan_day', label: 'Plan The Day', icon: Layout },
+            { id: 'deep_work_1', label: 'Deep Work Block 1', icon: Zap },
+            { id: 'deep_work_2', label: 'Deep Work Block 2', icon: Zap },
+            { id: 'ship_something', label: 'Ship Something', icon: Target },
+            { id: 'money', label: 'Money / Finance', icon: DollarSign },
+            { id: 'business_learning', label: 'Business Learning', icon: BookOpen },
+            { id: 'workout_movement', label: 'Workout / Movement', icon: Dumbbell },
+            { id: 'plan_tomorrow', label: 'Plan Tomorrow', icon: Calendar },
+            { id: 'zero_based_focus', label: 'Zero-Based Focus', icon: Activity },
+        ];
+
+        const MONTHS = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+
+        const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+        /* -------------------------------------------------------------------------- */
+        /* HELPERS                                                                    */
+        /* -------------------------------------------------------------------------- */
+
+        const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+        const getDayOfWeek = (year, month, day) => new Date(year, month, day).getDay();
+
+        const formatDateKey = (year, month, day) => {
+            const m = String(month + 1).padStart(2, '0');
+            const d = String(day).padStart(2, '0');
+            return `${year}-${m}-${d}`;
+        };
+
+        const getWeeksForMonth = (year, month) => {
+            const daysInMonth = getDaysInMonth(year, month);
+            const weeks = [];
+            let currentWeek = [];
+            const firstDayOfWeek = getDayOfWeek(year, month, 1);
+            for (let i = 0; i < firstDayOfWeek; i++) {
+                currentWeek.push(null);
+            }
+            for (let day = 1; day <= daysInMonth; day++) {
+                currentWeek.push(day);
+                if (currentWeek.length === 7) {
+                    weeks.push(currentWeek);
+                    currentWeek = [];
+                }
+            }
+            if (currentWeek.length > 0) {
+                while (currentWeek.length < 7) currentWeek.push(null);
+                weeks.push(currentWeek);
+            }
+            return weeks;
+        };
+
+        /* -------------------------------------------------------------------------- */
+        /* COMPONENTS                                                                 */
+        /* -------------------------------------------------------------------------- */
+
+        const ProgressBar = ({ percentage, colorClass = "from-cyan-400 to-blue-600", height = "h-2" }) => (
+            <div className={`${height} w-full bg-zinc-800 rounded-full overflow-hidden`}>
+                <div 
+                    className={`h-full bg-gradient-to-r ${colorClass} transition-all duration-500`}
+                    style={{ width: `${percentage}%` }}
+                />
+            </div>
+        );
+
+        // Sleek Modern Line Graph Component
+        const MonthlyProgressGraph = ({ data, year, month }) => {
+            const daysInMonth = getDaysInMonth(year, month);
+            const points = [];
+            
+            // Calculate daily scores (0-100)
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dateKey = formatDateKey(year, month, d);
+                const dayData = data[dateKey] || {};
+                const completedCount = HABITS.filter(h => dayData[h.id]).length;
+                const score = (completedCount / HABITS.length) * 100;
+                points.push({ day: d, score });
+            }
+
+            // SVG Dimensions
+            const width = 1000;
+            const height = 200;
+            const padding = 20;
+            const graphWidth = width - padding * 2;
+            const graphHeight = height - padding * 2;
+
+            // Generate Path
+            const getX = (index) => padding + (index * (graphWidth / (daysInMonth - 1)));
+            const getY = (score) => padding + graphHeight - ((score / 100) * graphHeight);
+
+            let pathD = `M ${getX(0)} ${getY(points[0].score)}`;
+            points.forEach((p, i) => {
+                if (i === 0) return;
+                pathD += ` L ${getX(i)} ${getY(p.score)}`;
+            });
+
+            // Area Path (for gradient fill)
+            const areaD = `${pathD} L ${getX(points.length - 1)} ${height} L ${getX(0)} ${height} Z`;
+
+            return (
+                <div className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl mt-8">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                            <Activity size={16} className="text-cyan-500" />
+                            Monthly Flow
+                        </h3>
+                        <span className="text-xs text-zinc-600 font-mono">100% Target</span>
+                    </div>
+                    
+                    <div className="relative w-full aspect-[4/1] min-h-[150px]">
+                        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
+                            <defs>
+                                <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.5" />
+                                    <stop offset="100%" stopColor="#06b6d4" stopOpacity="0" />
+                                </linearGradient>
+                            </defs>
+                            
+                            {/* Grid Lines */}
+                            {[0, 25, 50, 75, 100].map(tick => (
+                                <line 
+                                    key={tick} 
+                                    x1={padding} 
+                                    y1={getY(tick)} 
+                                    x2={width - padding} 
+                                    y2={getY(tick)} 
+                                    stroke="#27272a" 
+                                    strokeWidth="1" 
+                                    strokeDasharray="4 4"
+                                />
+                            ))}
+
+                            {/* Area Fill */}
+                            <path d={areaD} fill="url(#lineGradient)" stroke="none" />
+                            
+                            {/* Main Line */}
+                            <path d={pathD} fill="none" stroke="#22d3ee" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+
+                            {/* Points */}
+                            {points.map((p, i) => (
+                                <circle 
+                                    key={i} 
+                                    cx={getX(i)} 
+                                    cy={getY(p.score)} 
+                                    r="3" 
+                                    className="fill-zinc-900 stroke-cyan-400 stroke-2 hover:r-6 hover:fill-cyan-400 transition-all cursor-pointer"
+                                >
+                                    <title>Day {p.day}: {Math.round(p.score)}%</title>
+                                </circle>
+                            ))}
+                        </svg>
+
+                        {/* X-Axis Labels */}
+                        <div className="flex justify-between mt-2 text-[10px] text-zinc-600 font-mono">
+                            <span>Day 1</span>
+                            <span>Day {Math.floor(daysInMonth / 2)}</span>
+                            <span>Day {daysInMonth}</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        /* -------------------------------------------------------------------------- */
+        /* MAIN APP                                                                   */
+        /* -------------------------------------------------------------------------- */
+
+        function App() {
+            const [user, setUser] = useState(null);
+            const [data, setData] = useState({});
+            const [loading, setLoading] = useState(true);
+            const [view, setView] = useState('tracker'); 
+            
+            const now = new Date();
+            const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+            const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+
+            /* AUTH & DATA SYNC */
+            useEffect(() => {
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (err) {
+                        console.error("Auth error:", err);
+                    }
+                };
+                initAuth();
+
+                const unsubscribe = onAuthStateChanged(auth, (u) => {
+                    setUser(u);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            useEffect(() => {
+                if (!user) return;
+                const q = collection(db, 'artifacts', appId, 'users', user.uid, 'daily_logs');
+                const unsubscribe = onSnapshot(q, (snapshot) => {
+                    const newData = {};
+                    snapshot.forEach((doc) => newData[doc.id] = doc.data());
+                    setData(newData);
+                    setLoading(false);
+                }, (error) => {
+                    console.error("Firestore Error:", error);
+                    setLoading(false);
+                });
+                return () => unsubscribe();
+            }, [user]);
+
+            const toggleHabit = async (dateKey, habitId) => {
+                if (!user) return;
+                const currentDayData = data[dateKey] || {};
+                const isCompleted = currentDayData[habitId];
+                
+                // Optimistic Update
+                const newData = { ...data };
+                newData[dateKey] = { ...currentDayData, [habitId]: !isCompleted };
+                setData(newData);
+
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'daily_logs', dateKey);
+                    await setDoc(docRef, { [habitId]: !isCompleted }, { merge: true });
+                } catch (err) {
+                    console.error("Save failed:", err);
+                    setData(data); 
+                }
+            };
+
+            /* STATS ENGINE */
+            const stats = useMemo(() => {
+                const allDates = Object.keys(data).sort();
+                const totalEntries = allDates.length;
+                
+                if (totalEntries === 0) return null;
+
+                let habitCounts = {};
+                let dailyScores = {};
+                let weekdayScores = [0,0,0,0,0,0,0];
+                let weekdayCounts = [0,0,0,0,0,0,0];
+
+                HABITS.forEach(h => habitCounts[h.id] = 0);
+                
+                let totalScoreSum = 0;
+                let perfectDayCount = 0;
+                let totalHabitsLogged = 0;
+                let daysMissed = 0; 
+                let bestDayScore = 0;
+                let worstDayScore = 100;
+
+                allDates.forEach(dateKey => {
+                    const dayData = data[dateKey];
+                    let dayCompletedCount = 0;
+
+                    HABITS.forEach(h => {
+                        if (dayData[h.id]) {
+                            habitCounts[h.id]++;
+                            dayCompletedCount++;
+                        }
+                    });
+
+                    const dayScore = (dayCompletedCount / HABITS.length) * 100;
+                    dailyScores[dateKey] = dayScore;
+                    totalScoreSum += dayScore;
+                    totalHabitsLogged += dayCompletedCount;
+
+                    if (dayScore === 100) perfectDayCount++;
+                    if (dayScore === 0) daysMissed++;
+
+                    if (dayScore > bestDayScore) bestDayScore = dayScore;
+                    if (dayScore < worstDayScore) worstDayScore = dayScore;
+
+                    const [y, m, d] = dateKey.split('-').map(Number);
+                    const dayIndex = new Date(y, m-1, d).getDay();
+                    weekdayScores[dayIndex] += dayScore;
+                    weekdayCounts[dayIndex]++;
+                });
+
+                const lifetimeAverage = Math.round(totalScoreSum / totalEntries);
+                const perfectDayPercentage = Math.round((perfectDayCount / totalEntries) * 100);
+                const bestWeekdayIndex = weekdayScores.map((s, i) => weekdayCounts[i] ? s/weekdayCounts[i] : 0)
+                                                    .reduce((iMax, x, i, arr) => x > arr[iMax] ? i : iMax, 0);
+
+                const habitStats = HABITS.map(h => {
+                    let currentStreak = 0;
+                    let maxStreak = 0;
+                    let total = habitCounts[h.id];
+                    let tempStreak = 0;
+                    
+                    for (let i = 0; i < allDates.length; i++) {
+                        if (data[allDates[i]][h.id]) {
+                            tempStreak++;
+                            if (tempStreak > maxStreak) maxStreak = tempStreak;
+                        } else {
+                            tempStreak = 0;
+                        }
+                    }
+                    
+                    let activeStreak = 0;
+                    const todayKey = formatDateKey(now.getFullYear(), now.getMonth(), now.getDate());
+                    for(let i=0; i<365; i++) {
+                        const d = new Date(); d.setDate(d.getDate() - i);
+                        const k = formatDateKey(d.getFullYear(), d.getMonth(), d.getDate());
+                        if (k === todayKey && !data[k]?.[h.id]) continue;
+                        if (data[k]?.[h.id]) activeStreak++;
+                        else break;
+                    }
+
+                    return {
+                        ...h,
+                        total,
+                        completionRate: Math.round((total / totalEntries) * 100),
+                        maxStreak,
+                        currentStreak: activeStreak
+                    };
+                });
+
+                const mostConsistentHabit = [...habitStats].sort((a,b) => b.total - a.total)[0];
+                const leastConsistentHabit = [...habitStats].sort((a,b) => a.total - b.total)[0];
+                const longestStreakHabit = [...habitStats].sort((a,b) => b.maxStreak - a.maxStreak)[0];
+
+                const currentMonthKey = formatDateKey(now.getFullYear(), now.getMonth(), 1).substring(0, 7);
+                const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const lastMonthKey = formatDateKey(lastMonthDate.getFullYear(), lastMonthDate.getMonth(), 1).substring(0, 7);
+
+                let currMonthSum = 0, currMonthCount = 0;
+                let prevMonthSum = 0, prevMonthCount = 0;
+
+                allDates.forEach(date => {
+                    if (date.startsWith(currentMonthKey)) {
+                        currMonthSum += dailyScores[date];
+                        currMonthCount++;
+                    } else if (date.startsWith(lastMonthKey)) {
+                        prevMonthSum += dailyScores[date];
+                        prevMonthCount++;
+                    }
+                });
+
+                const currMonthAvg = currMonthCount ? currMonthSum / currMonthCount : 0;
+                const prevMonthAvg = prevMonthCount ? prevMonthSum / prevMonthCount : 0;
+                const trendDiff = Math.round(currMonthAvg - prevMonthAvg);
+
+                return {
+                    totalLoggedDays: totalEntries,
+                    lifetimeAverage,
+                    perfectDayPercentage,
+                    bestDayScore: Math.round(bestDayScore),
+                    worstDayScore: Math.round(worstDayScore),
+                    mostConsistentHabit,
+                    leastConsistentHabit,
+                    longestStreakHabit,
+                    bestWeekday: DAYS_OF_WEEK[bestWeekdayIndex],
+                    trendDiff,
+                    habitStats
+                };
+            }, [data]);
+
+            const renderTracker = () => {
+                const weeks = getWeeksForMonth(selectedYear, selectedMonth);
+
+                return (
+                    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+                        {weeks.map((week, wIndex) => (
+                            <div key={wIndex} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-xl">
+                                <div className="bg-zinc-950/50 px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+                                    <span className="text-[10px] font-bold tracking-widest text-zinc-600 uppercase">Week {wIndex + 1}</span>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr>
+                                                <th className="p-4 w-48 bg-zinc-900 sticky left-0 z-10 text-xs font-semibold text-zinc-500 border-b border-zinc-800/50">Habit</th>
+                                                {week.map((day, dIndex) => {
+                                                    if (!day) return <th key={dIndex} className="p-2 bg-zinc-950/20 border-b border-zinc-800/50"></th>;
+                                                    const dateKey = formatDateKey(selectedYear, selectedMonth, day);
+                                                    const isToday = dateKey === formatDateKey(now.getFullYear(), now.getMonth(), now.getDate());
+                                                    return (
+                                                        <th key={dIndex} className={`p-2 min-w-[50px] text-center border-b border-zinc-800/50 ${isToday ? 'bg-cyan-900/10' : ''}`}>
+                                                            <div className={`flex flex-col items-center gap-1 ${isToday ? 'text-cyan-400' : 'text-zinc-500'}`}>
+                                                                <span className="text-[9px] font-mono uppercase opacity-70">{DAYS_OF_WEEK[getDayOfWeek(selectedYear, selectedMonth, day)]}</span>
+                                                                <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-cyan-500/20 text-cyan-300' : ''}`}>{day}</span>
+                                                            </div>
+                                                        </th>
+                                                    );
+                                                })}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {HABITS.map((habit) => (
+                                                <tr key={habit.id} className="group hover:bg-zinc-800/20 transition-colors border-b border-zinc-800/30 last:border-0">
+                                                    <td className="p-3 sticky left-0 z-10 bg-zinc-900 group-hover:bg-zinc-900 transition-colors border-r border-zinc-800/50">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`p-1.5 rounded-md bg-zinc-800/50 text-zinc-500 group-hover:text-cyan-400 transition-all`}>
+                                                                <habit.icon size={14} />
+                                                            </div>
+                                                            <span className="text-xs font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors">{habit.label}</span>
+                                                        </div>
+                                                    </td>
+                                                    {week.map((day, dIndex) => {
+                                                        if (!day) return <td key={dIndex} className="bg-zinc-950/20"></td>;
+                                                        const dateKey = formatDateKey(selectedYear, selectedMonth, day);
+                                                        const isCompleted = data[dateKey]?.[habit.id];
+                                                        return (
+                                                            <td key={dIndex} className="p-1 text-center relative">
+                                                                <button
+                                                                    onClick={() => toggleHabit(dateKey, habit.id)}
+                                                                    className={`
+                                                                        w-6 h-6 rounded flex items-center justify-center transition-all duration-200 mx-auto
+                                                                        ${isCompleted 
+                                                                            ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-[0_0_10px_-2px_rgba(6,182,212,0.4)]' 
+                                                                            : 'bg-zinc-800/30 text-zinc-800 hover:bg-zinc-800 hover:text-zinc-600'
+                                                                        }
+                                                                    `}
+                                                                >
+                                                                    {isCompleted && <CheckCircle2 size={12} strokeWidth={4} />}
+                                                                </button>
+                                                            </td>
+                                                        );
+                                                    })}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ))}
+                        
+                        <MonthlyProgressGraph data={data} year={selectedYear} month={selectedMonth} />
+                    </div>
+                );
+            };
+
+            const renderStats = () => {
+                if (!stats) return (
+                    <div className="flex flex-col items-center justify-center h-96 text-zinc-500">
+                        <Activity size={48} className="mb-4 opacity-20" />
+                        <p>Log some data to unlock insights.</p>
+                    </div>
+                );
+
+                const { 
+                    totalLoggedDays, lifetimeAverage, perfectDayPercentage, bestDayScore, worstDayScore,
+                    mostConsistentHabit, leastConsistentHabit, longestStreakHabit, bestWeekday, trendDiff, habitStats 
+                } = stats;
+
+                return (
+                    <div className="pb-12 animate-in slide-in-from-bottom-8 duration-700">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-min">
+                            
+                            {/* Main Score Card */}
+                            <div className="md:col-span-2 md:row-span-2 bg-gradient-to-br from-zinc-900 to-black border border-zinc-800 rounded-3xl p-8 flex flex-col justify-between relative overflow-hidden group hover:border-zinc-700 transition-all">
+                                <div className="absolute top-0 right-0 p-32 bg-cyan-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                                
+                                <div className="flex justify-between items-start z-10">
+                                    <div className="p-3 bg-zinc-800/50 rounded-2xl text-cyan-400">
+                                        <Crown size={32} />
+                                    </div>
+                                    <div className={`flex items-center gap-1 text-sm font-bold ${trendDiff >= 0 ? 'text-green-500' : 'text-red-500'} bg-zinc-900/80 px-3 py-1 rounded-full`}>
+                                        {trendDiff > 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                                        {Math.abs(trendDiff)}% vs last month
+                                    </div>
+                                </div>
+                                
+                                <div className="z-10 mt-8">
+                                    <h3 className="text-zinc-400 font-medium mb-1">Lifetime Consistency</h3>
+                                    <div className="text-6xl font-black text-white tracking-tight flex items-baseline gap-2">
+                                        {lifetimeAverage}
+                                        <span className="text-2xl text-zinc-600">%</span>
+                                    </div>
+                                    <p className="text-zinc-500 text-sm mt-4 leading-relaxed">
+                                        You've tracked <span className="text-white font-bold">{totalLoggedDays} days</span> total. 
+                                        Your average performance is currently holding steady at {lifetimeAverage}%.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Perfect Days */}
+                            <div className="md:col-span-2 bg-zinc-900 border border-zinc-800 rounded-3xl p-6 flex items-center justify-between hover:border-zinc-700 transition-colors">
+                                <div>
+                                    <p className="text-zinc-400 text-sm font-medium mb-1">Perfect Days</p>
+                                    <h4 className="text-3xl font-bold text-white">{perfectDayPercentage}%</h4>
+                                    <p className="text-xs text-zinc-600 mt-1">Days with 100% completion</p>
+                                </div>
+                                <div className="h-16 w-16 rounded-full bg-gradient-to-tr from-purple-500 to-pink-600 flex items-center justify-center text-white shadow-lg shadow-purple-900/20">
+                                    <Target size={28} />
+                                </div>
+                            </div>
+
+                            {/* Best Weekday */}
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-700 transition-colors">
+                                <div className="flex items-center gap-3 mb-3 text-zinc-400">
+                                    <CalendarDays size={18} />
+                                    <span className="text-xs font-bold uppercase tracking-wider">Power Day</span>
+                                </div>
+                                <div className="text-2xl font-bold text-white">{bestWeekday}</div>
+                                <p className="text-xs text-zinc-600 mt-1">Your most productive day of the week.</p>
+                            </div>
+
+                            {/* Best/Worst Stats */}
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-700 transition-colors flex flex-col justify-center gap-4">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-zinc-500">Best Day</span>
+                                    <span className="text-sm font-bold text-green-400">{bestDayScore}%</span>
+                                </div>
+                                <div className="w-full h-px bg-zinc-800"></div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-zinc-500">Worst Day</span>
+                                    <span className="text-sm font-bold text-red-400">{worstDayScore}%</span>
+                                </div>
+                            </div>
+
+                            {/* Longest Streak */}
+                            <div className="md:col-span-2 bg-zinc-900 border border-zinc-800 rounded-3xl p-6 relative overflow-hidden group">
+                                <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-orange-500/10 to-transparent"></div>
+                                <div className="relative z-10 flex items-center gap-6">
+                                    <div className="p-4 bg-orange-500/10 text-orange-500 rounded-2xl">
+                                        <Flame size={32} />
+                                    </div>
+                                    <div>
+                                        <p className="text-zinc-400 text-xs uppercase tracking-widest font-bold mb-1">Longest Streak Record</p>
+                                        <h3 className="text-xl font-bold text-white mb-1">{longestStreakHabit.label}</h3>
+                                        <p className="text-orange-400 font-mono text-sm">{longestStreakHabit.maxStreak} consecutive days</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Most Reliable */}
+                            <div className="md:col-span-2 bg-zinc-900 border border-zinc-800 rounded-3xl p-6 flex items-center gap-6 group hover:border-zinc-700 transition-colors">
+                                <div className="p-4 bg-blue-500/10 text-blue-400 rounded-2xl">
+                                    <Trophy size={32} />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-zinc-400 text-xs uppercase tracking-widest font-bold mb-1">Most Reliable Habit</p>
+                                    <h3 className="text-xl font-bold text-white mb-1">{mostConsistentHabit.label}</h3>
+                                    <div className="flex items-center gap-3">
+                                        <ProgressBar percentage={mostConsistentHabit.completionRate} height="h-1.5" colorClass="from-blue-500 to-indigo-500" />
+                                        <span className="text-xs font-mono text-blue-300">{mostConsistentHabit.completionRate}%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Most Missed */}
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-700 transition-colors">
+                                <div className="flex items-center gap-2 mb-3 text-red-400">
+                                    <AlertCircle size={18} />
+                                    <span className="text-xs font-bold uppercase tracking-wider">Bottleneck</span>
+                                </div>
+                                <div className="text-sm font-bold text-white leading-tight mb-2">{leastConsistentHabit.label}</div>
+                                <p className="text-xs text-zinc-600">Only {leastConsistentHabit.completionRate}% completion rate.</p>
+                            </div>
+
+                            {/* Current Focus */}
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-700 transition-colors">
+                                <div className="flex items-center gap-2 mb-3 text-cyan-400">
+                                    <Zap size={18} />
+                                    <span className="text-xs font-bold uppercase tracking-wider">Current Focus</span>
+                                </div>
+                                <div className="text-sm font-bold text-white leading-tight mb-2">{mostConsistentHabit.currentStreak} day streak</div>
+                                <p className="text-xs text-zinc-600">On {mostConsistentHabit.label}</p>
+                            </div>
+
+                            {/* Rankings */}
+                            <div className="md:col-span-4 bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mt-4">
+                                <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                                    <BarChart3 size={20} className="text-cyan-500" />
+                                    Habit Rankings
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                                    {[...habitStats].sort((a,b) => b.completionRate - a.completionRate).map((habit, index) => (
+                                        <div key={habit.id} className="flex items-center gap-4 group">
+                                            <div className="font-mono text-zinc-600 text-sm w-6">#{index + 1}</div>
+                                            <div className="flex-1">
+                                                <div className="flex justify-between mb-1.5">
+                                                    <span className="text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">{habit.label}</span>
+                                                    <span className="text-xs font-mono text-cyan-500">{habit.completionRate}%</span>
+                                                </div>
+                                                <ProgressBar percentage={habit.completionRate} height="h-1.5" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            if (loading) {
+                return (
+                    <div className="min-h-screen bg-black flex items-center justify-center text-cyan-500">
+                        <div className="flex flex-col items-center gap-4">
+                            <Activity className="animate-bounce w-10 h-10" />
+                            <span className="text-sm font-mono tracking-widest uppercase text-zinc-600">Loading Data...</span>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-5xl mx-auto px-4 py-8">
+                    {/* Header */}
+                    <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div>
+                            <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-500 tracking-tight mb-1">
+                                FOCUS<span className="text-cyan-500">.</span>IO
+                            </h1>
+                            <p className="text-zinc-500 text-sm">Measure what matters. Automate the rest.</p>
+                        </div>
+
+                        <div className="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800">
+                            <button
+                                onClick={() => setView('tracker')}
+                                className={`px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
+                                    view === 'tracker' 
+                                        ? 'bg-zinc-800 text-white shadow-lg' 
+                                        : 'text-zinc-500 hover:text-zinc-300'
+                                }`}
+                            >
+                                Tracker
+                            </button>
+                            <button
+                                onClick={() => setView('stats')}
+                                className={`px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
+                                    view === 'stats' 
+                                        ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg' 
+                                        : 'text-zinc-500 hover:text-zinc-300'
+                                }`}
+                            >
+                                Analytics
+                            </button>
+                        </div>
+                    </header>
+
+                    {view === 'tracker' && (
+                        <div className="mb-6 flex items-center justify-between bg-zinc-900/50 p-4 rounded-xl border border-zinc-800 backdrop-blur-sm sticky top-4 z-20 shadow-lg">
+                            <button 
+                                onClick={() => {
+                                    if (selectedMonth === 0) { setSelectedMonth(11); setSelectedYear(y => y - 1); } 
+                                    else { setSelectedMonth(m => m - 1); }
+                                }}
+                                className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                            >
+                                <ChevronLeft size={20} />
+                            </button>
+                            
+                            <div className="text-center">
+                                <h2 className="text-xl font-bold text-white tracking-wide">{MONTHS[selectedMonth]}</h2>
+                                <span className="text-xs font-mono text-cyan-500 tracking-widest">{selectedYear}</span>
+                            </div>
+
+                            <button 
+                                onClick={() => {
+                                    if (selectedMonth === 11) { setSelectedMonth(0); setSelectedYear(y => y + 1); } 
+                                    else { setSelectedMonth(m => m + 1); }
+                                }}
+                                className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                            >
+                                <ChevronRight size={20} />
+                            </button>
+                        </div>
+                    )}
+
+                    {view === 'tracker' ? renderTracker() : renderStats()}
+                </div>
+            );
+        }
+
+        // Mount the App
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
