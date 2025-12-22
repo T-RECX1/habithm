@@ -321,6 +321,14 @@
             const [selectedYear, setSelectedYear] = useState(now.getFullYear());
             const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
 
+            useEffect(() => {
+              const saved = localStorage.getItem("habitData");
+              if (saved) {
+                setData(JSON.parse(saved));
+              }
+              setLoading(false);
+            }, []);
+
             /* AUTH & DATA SYNC */
             useEffect(() => {
                 const initAuth = async () => {
@@ -357,8 +365,7 @@
                 return () => unsubscribe();
             }, [user]);
 
-            const toggleHabit = async (dateKey, habitId) => {
-                if (!user) return;
+            const toggleHabit = (dateKey, habitId) => {
                 const currentDayData = data[dateKey] || {};
                 const isCompleted = currentDayData[habitId];
                 
@@ -367,13 +374,8 @@
                 newData[dateKey] = { ...currentDayData, [habitId]: !isCompleted };
                 setData(newData);
 
-                try {
-                    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'daily_logs', dateKey);
-                    await setDoc(docRef, { [habitId]: !isCompleted }, { merge: true });
-                } catch (err) {
-                    console.error("Save failed:", err);
-                    setData(data); 
-                }
+                localStorage.setItem("habitData", JSON.stringify(newData));
+
             };
 
             /* STATS ENGINE */
@@ -819,5 +821,6 @@
     </script>
 </body>
 </html>
+
 
 
