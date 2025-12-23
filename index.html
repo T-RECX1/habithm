@@ -11,7 +11,7 @@
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Tailwind Configuration to ensure Zinc/Cyan/Black theme matches perfectly -->
+    <!-- Tailwind Configuration -->
     <script>
         tailwind.config = {
             theme: {
@@ -33,7 +33,7 @@
     </script>
 
     <style>
-        /* Custom Scrollbar for the StatsFM feel */
+        /* Custom Scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
@@ -53,17 +53,12 @@
             background-color: #000000;
             color: #e4e4e7;
         }
-        
-        .glass-panel {
-            background: rgba(24, 24, 27, 0.6);
-            backdrop-filter: blur(12px);
-        }
     </style>
 </head>
 <body class="bg-black text-zinc-200 antialiased min-h-screen">
     <div id="root"></div>
 
-    <!-- Import Map for React, Firebase, and Icons -->
+    <!-- Import Map -->
     <script type="importmap">
     {
         "imports": {
@@ -102,14 +97,12 @@
             Calendar, 
             CheckCircle2, 
             TrendingUp, 
+            TrendingDown,
             Flame, 
             Target, 
             Zap, 
             Layout, 
             Dumbbell, 
-            Briefcase, 
-            Sun, 
-            DollarSign, 
             BookOpen, 
             Monitor, 
             Trophy, 
@@ -118,18 +111,19 @@
             CalendarDays, 
             ArrowUpRight, 
             ArrowDownRight, 
-            Crown 
+            Crown,
+            Sun, 
+            DollarSign, 
+            CheckSquare
         } from 'lucide-react';
 
         /* -------------------------------------------------------------------------- */
         /* FIREBASE SETUP                                                             */
         /* -------------------------------------------------------------------------- */
         
-        // Note: In the Preview Environment, these globals are provided.
-        // If running locally, you would replace these with your own Firebase Config object.
         const firebaseConfig = typeof __firebase_config !== 'undefined' 
             ? JSON.parse(__firebase_config) 
-            : { apiKey: "demo-key", authDomain: "demo.firebaseapp.com", projectId: "demo" }; // Fallback for safety
+            : { apiKey: "demo-key", authDomain: "demo.firebaseapp.com", projectId: "demo" };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -137,7 +131,7 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         /* -------------------------------------------------------------------------- */
-        /* CONSTANTS                 test                                             */
+        /* CONSTANTS                                                                  */
         /* -------------------------------------------------------------------------- */
 
         const HABITS = [
@@ -209,12 +203,25 @@
             </div>
         );
 
-        // Sleek Modern Line Graph Component
+        const StatCard = ({ icon: Icon, title, value, subtitle, color = "text-cyan-400" }) => (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-700 transition-colors flex flex-col justify-between h-full">
+                <div>
+                    <div className={`flex items-center gap-2 mb-3 ${color}`}>
+                        <Icon size={18} />
+                        <span className="text-xs font-bold uppercase tracking-wider">
+                            {title}
+                        </span>
+                    </div>
+                    <div className="text-3xl font-bold text-white tracking-tight">{value}</div>
+                </div>
+                <p className="text-xs text-zinc-500 mt-2 font-medium">{subtitle}</p>
+            </div>
+        );
+
         const MonthlyProgressGraph = ({ data, year, month }) => {
             const daysInMonth = getDaysInMonth(year, month);
             const points = [];
             
-            // Calculate daily scores (0-100)
             for (let d = 1; d <= daysInMonth; d++) {
                 const dateKey = formatDateKey(year, month, d);
                 const dayData = data[dateKey] || {};
@@ -223,14 +230,12 @@
                 points.push({ day: d, score });
             }
 
-            // SVG Dimensions
             const width = 1000;
             const height = 200;
             const padding = 20;
             const graphWidth = width - padding * 2;
             const graphHeight = height - padding * 2;
 
-            // Generate Path
             const getX = (index) => padding + (index * (graphWidth / (daysInMonth - 1)));
             const getY = (score) => padding + graphHeight - ((score / 100) * graphHeight);
 
@@ -240,7 +245,6 @@
                 pathD += ` L ${getX(i)} ${getY(p.score)}`;
             });
 
-            // Area Path (for gradient fill)
             const areaD = `${pathD} L ${getX(points.length - 1)} ${height} L ${getX(0)} ${height} Z`;
 
             return (
@@ -262,7 +266,6 @@
                                 </linearGradient>
                             </defs>
                             
-                            {/* Grid Lines */}
                             {[0, 25, 50, 75, 100].map(tick => (
                                 <line 
                                     key={tick} 
@@ -276,13 +279,9 @@
                                 />
                             ))}
 
-                            {/* Area Fill */}
                             <path d={areaD} fill="url(#lineGradient)" stroke="none" />
-                            
-                            {/* Main Line */}
                             <path d={pathD} fill="none" stroke="#22d3ee" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
 
-                            {/* Points */}
                             {points.map((p, i) => (
                                 <circle 
                                     key={i} 
@@ -296,7 +295,6 @@
                             ))}
                         </svg>
 
-                        {/* X-Axis Labels */}
                         <div className="flex justify-between mt-2 text-[10px] text-zinc-600 font-mono">
                             <span>Day 1</span>
                             <span>Day {Math.floor(daysInMonth / 2)}</span>
@@ -306,19 +304,6 @@
                 </div>
             );
         };
-
-const StatCard = ({ icon: Icon, title, value, subtitle }) => (
-  <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-700 transition-colors">
-    <div className="flex items-center gap-2 mb-3 text-cyan-400">
-      <Icon size={18} />
-      <span className="text-xs font-bold uppercase tracking-wider">
-        {title}
-      </span>
-    </div>
-    <div className="text-3xl font-bold text-white">{value}</div>
-    <p className="text-xs text-zinc-600 mt-1">{subtitle}</p>
-  </div>
-);
 
         /* -------------------------------------------------------------------------- */
         /* MAIN APP                                                                   */
@@ -334,6 +319,7 @@ const StatCard = ({ icon: Icon, title, value, subtitle }) => (
             const [selectedYear, setSelectedYear] = useState(now.getFullYear());
             const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
 
+            // Local Storage init
             useEffect(() => {
               const saved = localStorage.getItem("habitData");
               if (saved) {
@@ -379,21 +365,25 @@ const StatCard = ({ icon: Icon, title, value, subtitle }) => (
             }, [user]);
 
             const toggleHabit = (dateKey, habitId) => {
-  const currentDayData = data[dateKey] || {};
-  const isCompleted = currentDayData[habitId];
+                const currentDayData = data[dateKey] || {};
+                const isCompleted = currentDayData[habitId];
 
-  const newData = {
-    ...data,
-    [dateKey]: {
-      ...currentDayData,
-      [habitId]: !isCompleted
-    }
-  };
+                const newData = {
+                    ...data,
+                    [dateKey]: {
+                    ...currentDayData,
+                    [habitId]: !isCompleted
+                    }
+                };
 
-  setData(newData);
-  localStorage.setItem("habitData", JSON.stringify(newData));
-};
-;
+                setData(newData);
+                localStorage.setItem("habitData", JSON.stringify(newData));
+                
+                if (user) {
+                    setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'daily_logs', dateKey), newData[dateKey])
+                        .catch(e => console.error("Save failed", e));
+                }
+            };
 
             /* STATS ENGINE */
             const stats = useMemo(() => {
@@ -415,15 +405,28 @@ const StatCard = ({ icon: Icon, title, value, subtitle }) => (
                 let daysMissed = 0; 
                 let bestDayScore = 0;
                 let worstDayScore = 100;
+                
+                // Extra Stat Counters
+                let highPerformanceDays = 0;
+                let lowPerformanceDays = 0;
+                let focusSuccessDays = 0;
+                let doomscrollSlipDays = 0;
+                let shipDays = 0;
+                let deepWorkAndShipDays = 0;
+                let totalHabitChecks = 0;
+                let tempStreak = 0;
+                let longestOverallStreak = 0;
 
                 allDates.forEach(dateKey => {
                     const dayData = data[dateKey];
                     let dayCompletedCount = 0;
 
+                    // Standard Counts
                     HABITS.forEach(h => {
                         if (dayData[h.id]) {
                             habitCounts[h.id]++;
                             dayCompletedCount++;
+                            totalHabitChecks++;
                         }
                     });
 
@@ -442,25 +445,44 @@ const StatCard = ({ icon: Icon, title, value, subtitle }) => (
                     const dayIndex = new Date(y, m-1, d).getDay();
                     weekdayScores[dayIndex] += dayScore;
                     weekdayCounts[dayIndex]++;
+
+                    // Extra Stats Logic
+                    if (dayScore >= 80) highPerformanceDays++;
+                    if (dayScore <= 30) lowPerformanceDays++;
+
+                    if (dayScore >= 70) {
+                        tempStreak++;
+                        longestOverallStreak = Math.max(longestOverallStreak, tempStreak);
+                    } else {
+                        tempStreak = 0;
+                    }
+
+                    if (dayData.ship_something) shipDays++;
+                    if ((dayData.deep_work_1 || dayData.deep_work_2) && dayData.ship_something) {
+                        deepWorkAndShipDays++;
+                    }
+
+                    if (dayData.zero_based_focus) focusSuccessDays++;
+                    if (!dayData.no_doomscrolling) doomscrollSlipDays++;
                 });
 
+                const currentOverallStreak = tempStreak;
                 const lifetimeAverage = Math.round(totalScoreSum / totalEntries);
                 const perfectDayPercentage = Math.round((perfectDayCount / totalEntries) * 100);
                 const bestWeekdayIndex = weekdayScores.map((s, i) => weekdayCounts[i] ? s/weekdayCounts[i] : 0)
                                                     .reduce((iMax, x, i, arr) => x > arr[iMax] ? i : iMax, 0);
 
                 const habitStats = HABITS.map(h => {
-                    let currentStreak = 0;
                     let maxStreak = 0;
                     let total = habitCounts[h.id];
-                    let tempStreak = 0;
+                    let hTempStreak = 0;
                     
                     for (let i = 0; i < allDates.length; i++) {
                         if (data[allDates[i]][h.id]) {
-                            tempStreak++;
-                            if (tempStreak > maxStreak) maxStreak = tempStreak;
+                            hTempStreak++;
+                            if (hTempStreak > maxStreak) maxStreak = hTempStreak;
                         } else {
-                            tempStreak = 0;
+                            hTempStreak = 0;
                         }
                     }
                     
@@ -507,85 +529,27 @@ const StatCard = ({ icon: Icon, title, value, subtitle }) => (
                 const currMonthAvg = currMonthCount ? currMonthSum / currMonthCount : 0;
                 const prevMonthAvg = prevMonthCount ? prevMonthSum / prevMonthCount : 0;
                 const trendDiff = Math.round(currMonthAvg - prevMonthAvg);
-// ------------------- EXTRA STATS -------------------
 
-let currentOverallStreak = 0;
-let longestOverallStreak = 0;
-let tempStreak = 0;
+                const shipRate = totalEntries ? Math.round((shipDays / totalEntries) * 100) : 0;
+                const deepWorkShipRate = shipDays ? Math.round((deepWorkAndShipDays / shipDays) * 100) : 0;
 
-let highPerformanceDays = 0;
-let lowPerformanceDays = 0;
+                const builderIndex = totalEntries
+                ? Math.round(
+                    ((shipDays * 3) +
+                    (habitCounts.deep_work_1 * 2) +
+                    (habitCounts.deep_work_2 * 2) +
+                    (habitCounts.money || 0)) / totalEntries
+                    )
+                : 0;
 
-let focusSuccessDays = 0;
-let doomscrollSlipDays = 0;
+                const meanScore = totalScoreSum / totalEntries;
+                const variance = Object.values(dailyScores).reduce(
+                    (sum, s) => sum + Math.pow(s - meanScore, 2),
+                    0
+                ) / totalEntries;
 
-let shipDays = 0;
-let deepWorkAndShipDays = 0;
-
-let totalHabitChecks = 0;
-
-allDates.forEach(dateKey => {
-  const score = dailyScores[dateKey];
-  const dayData = data[dateKey];
-
-  if (score >= 80) highPerformanceDays++;
-  if (score <= 30) lowPerformanceDays++;
-
-  if (score >= 70) {
-    tempStreak++;
-    longestOverallStreak = Math.max(longestOverallStreak, tempStreak);
-  } else {
-    tempStreak = 0;
-  }
-
-  if (dayData.ship_something) shipDays++;
-  if (
-    (dayData.deep_work_1 || dayData.deep_work_2) &&
-    dayData.ship_something
-  ) {
-    deepWorkAndShipDays++;
-  }
-
-  if (dayData.zero_based_focus) focusSuccessDays++;
-  if (!dayData.no_doomscrolling) doomscrollSlipDays++;
-
-  HABITS.forEach(h => {
-    if (dayData[h.id]) totalHabitChecks++;
-  });
-});
-
-currentOverallStreak = tempStreak;
-
-const shipRate = totalEntries
-  ? Math.round((shipDays / totalEntries) * 100)
-  : 0;
-
-const deepWorkShipRate = shipDays
-  ? Math.round((deepWorkAndShipDays / shipDays) * 100)
-  : 0;
-
-const builderIndex = totalEntries
-  ? Math.round(
-      ((shipDays * 3) +
-      (habitCounts.deep_work_1 * 2) +
-      (habitCounts.deep_work_2 * 2) +
-      (habitCounts.money || 0)) / totalEntries
-    )
-  : 0;
-
-const meanScore = totalScoreSum / totalEntries;
-const variance =
-  Object.values(dailyScores).reduce(
-    (sum, s) => sum + Math.pow(s - meanScore, 2),
-    0
-  ) / totalEntries;
-
-const consistencyScore = Math.max(
-  0,
-  Math.round(100 - Math.sqrt(variance))
-);
-
-const xpLevel = Math.floor(totalHabitChecks / 50);
+                const consistencyScore = Math.max(0, Math.round(100 - Math.sqrt(variance)));
+                const xpLevel = Math.floor(totalHabitChecks / 50);
 
                 return {
                     totalLoggedDays: totalEntries,
@@ -599,7 +563,6 @@ const xpLevel = Math.floor(totalHabitChecks / 50);
                     bestWeekday: DAYS_OF_WEEK[bestWeekdayIndex],
                     trendDiff,
                     habitStats,
-                    currentOverallStreak,
                     currentOverallStreak,
                     longestOverallStreak,
                     highPerformanceDays,
@@ -708,7 +671,7 @@ const xpLevel = Math.floor(totalHabitChecks / 50);
                     <div className="pb-12 animate-in slide-in-from-bottom-8 duration-700">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-min">
                             
-                            {/* Main Score Card */}
+                            {/* Main Score Card (2x2) */}
                             <div className="md:col-span-2 md:row-span-2 bg-gradient-to-br from-zinc-900 to-black border border-zinc-800 rounded-3xl p-8 flex flex-col justify-between relative overflow-hidden group hover:border-zinc-700 transition-all">
                                 <div className="absolute top-0 right-0 p-32 bg-cyan-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                                 
@@ -735,7 +698,7 @@ const xpLevel = Math.floor(totalHabitChecks / 50);
                                 </div>
                             </div>
 
-                            {/* Perfect Days */}
+                            {/* Perfect Days (2x1) */}
                             <div className="md:col-span-2 bg-zinc-900 border border-zinc-800 rounded-3xl p-6 flex items-center justify-between hover:border-zinc-700 transition-colors">
                                 <div>
                                     <p className="text-zinc-400 text-sm font-medium mb-1">Perfect Days</p>
@@ -747,17 +710,17 @@ const xpLevel = Math.floor(totalHabitChecks / 50);
                                 </div>
                             </div>
 
-                            {/* Best Weekday */}
-                            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-700 transition-colors">
+                            {/* Best Weekday (1x1) */}
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-700 transition-colors flex flex-col justify-between">
                                 <div className="flex items-center gap-3 mb-3 text-zinc-400">
                                     <CalendarDays size={18} />
                                     <span className="text-xs font-bold uppercase tracking-wider">Power Day</span>
                                 </div>
                                 <div className="text-2xl font-bold text-white">{bestWeekday}</div>
-                                <p className="text-xs text-zinc-600 mt-1">Your most productive day of the week.</p>
+                                <p className="text-xs text-zinc-600 mt-1">Your most productive day.</p>
                             </div>
 
-                            {/* Best/Worst Stats */}
+                            {/* Best/Worst Stats (1x1) */}
                             <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-700 transition-colors flex flex-col justify-center gap-4">
                                 <div className="flex justify-between items-center">
                                     <span className="text-xs text-zinc-500">Best Day</span>
@@ -770,7 +733,7 @@ const xpLevel = Math.floor(totalHabitChecks / 50);
                                 </div>
                             </div>
 
-                            {/* Longest Streak */}
+                            {/* Longest Streak (2x1) */}
                             <div className="md:col-span-2 bg-zinc-900 border border-zinc-800 rounded-3xl p-6 relative overflow-hidden group">
                                 <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-orange-500/10 to-transparent"></div>
                                 <div className="relative z-10 flex items-center gap-6">
@@ -785,7 +748,7 @@ const xpLevel = Math.floor(totalHabitChecks / 50);
                                 </div>
                             </div>
 
-                            {/* Most Reliable */}
+                            {/* Most Reliable (2x1) */}
                             <div className="md:col-span-2 bg-zinc-900 border border-zinc-800 rounded-3xl p-6 flex items-center gap-6 group hover:border-zinc-700 transition-colors">
                                 <div className="p-4 bg-blue-500/10 text-blue-400 rounded-2xl">
                                     <Trophy size={32} />
@@ -800,27 +763,52 @@ const xpLevel = Math.floor(totalHabitChecks / 50);
                                 </div>
                             </div>
 
-                            {/* Most Missed */}
-                            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-700 transition-colors">
+                            {/* Most Missed (1x1) */}
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-700 transition-colors flex flex-col justify-between">
                                 <div className="flex items-center gap-2 mb-3 text-red-400">
                                     <AlertCircle size={18} />
                                     <span className="text-xs font-bold uppercase tracking-wider">Bottleneck</span>
                                 </div>
-                                <div className="text-sm font-bold text-white leading-tight mb-2">{leastConsistentHabit.label}</div>
-                                <p className="text-xs text-zinc-600">Only {leastConsistentHabit.completionRate}% completion rate.</p>
+                                <div>
+                                    <div className="text-sm font-bold text-white leading-tight mb-2">{leastConsistentHabit.label}</div>
+                                    <p className="text-xs text-zinc-600">Only {leastConsistentHabit.completionRate}% completion rate.</p>
+                                </div>
                             </div>
 
-                            {/* Current Focus */}
-                            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-700 transition-colors">
+                            {/* Current Focus (1x1) */}
+                            <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 hover:border-zinc-700 transition-colors flex flex-col justify-between">
                                 <div className="flex items-center gap-2 mb-3 text-cyan-400">
                                     <Zap size={18} />
                                     <span className="text-xs font-bold uppercase tracking-wider">Current Focus</span>
                                 </div>
-                                <div className="text-sm font-bold text-white leading-tight mb-2">{mostConsistentHabit.currentStreak} day streak</div>
-                                <p className="text-xs text-zinc-600">On {mostConsistentHabit.label}</p>
+                                <div>
+                                    <div className="text-sm font-bold text-white leading-tight mb-2">{mostConsistentHabit.currentStreak} day streak</div>
+                                    <p className="text-xs text-zinc-600">On {mostConsistentHabit.label}</p>
+                                </div>
                             </div>
 
-                            {/* Rankings */}
+                            {/* ------------------- NEW GRID ITEMS ------------------- */}
+                            
+                            <StatCard icon={Flame} title="Current Streak" value={`${stats.currentOverallStreak} days`} subtitle="≥70% daily completion" />
+                            <StatCard icon={Flame} title="Longest Streak" value={`${stats.longestOverallStreak} days`} subtitle="All-time daily record" />
+                            <StatCard icon={TrendingUp} title="Consistency" value={`${stats.consistencyScore}%`} subtitle="Stability Score" />
+                            <StatCard icon={Target} title="Ship Rate" value={`${stats.shipRate}%`} subtitle="Days you shipped" />
+                            
+                            <StatCard icon={Zap} title="Builder Index" value={stats.builderIndex} subtitle="Weighted creation score" />
+                            <StatCard icon={ArrowUpRight} title="Deep Work → Ship" value={`${stats.deepWorkShipRate}%`} subtitle="Conversion rate" />
+                            <StatCard icon={Activity} title="Focus Days" value={stats.focusSuccessDays} subtitle="Zero-based focus wins" />
+                            <StatCard icon={AlertCircle} title="Doomscroll Slips" value={stats.doomscrollSlipDays} subtitle="Missed no-scroll rule" color="text-red-400" />
+                            
+                            <StatCard icon={Crown} title="XP Level" value={`Lv ${stats.xpLevel}`} subtitle="50 checks per level" color="text-yellow-400" />
+                            
+                            {/* ADDED MISSING STATS */}
+                            <StatCard icon={TrendingUp} title="High Perf Days" value={stats.highPerformanceDays} subtitle="Days with ≥80% score" color="text-emerald-400" />
+                            <StatCard icon={TrendingDown} title="Low Perf Days" value={stats.lowPerformanceDays} subtitle="Days with ≤30% score" color="text-rose-400" />
+                            <StatCard icon={CheckSquare} title="Total Reps" value={stats.totalHabitChecks} subtitle="Total boxes checked" color="text-indigo-400" />
+                            
+                            {/* ------------------------------------------------------ */}
+
+                            {/* Rankings (Full Width) */}
                             <div className="md:col-span-4 bg-zinc-900 border border-zinc-800 rounded-3xl p-8 mt-4">
                                 <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                                     <BarChart3 size={20} className="text-cyan-500" />
@@ -835,21 +823,6 @@ const xpLevel = Math.floor(totalHabitChecks / 50);
                                                     <span className="text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">{habit.label}</span>
                                                     <span className="text-xs font-mono text-cyan-500">{habit.completionRate}%</span>
                                                 </div>
-                                                
-                                                {/* Extra Analytics */}
-<div className="md:col-span-4 grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-  <StatCard icon={Flame} title="Current Streak" value={`${stats.currentOverallStreak} days`} subtitle="≥70% completion" />
-  <StatCard icon={Flame} title="Longest Streak" value={`${stats.longestOverallStreak} days`} subtitle="All-time record" />
-  <StatCard icon={TrendingUp} title="Consistency Score" value={`${stats.consistencyScore}%`} subtitle="Stability over time" />
-
-  <StatCard icon={Target} title="Ship Rate" value={`${stats.shipRate}%`} subtitle="Days you shipped" />
-  <StatCard icon={Zap} title="Builder Index" value={stats.builderIndex} subtitle="Weighted creation score" />
-  <StatCard icon={ArrowUpRight} title="Deep Work → Ship" value={`${stats.deepWorkShipRate}%`} subtitle="Conversion rate" />
-
-  <StatCard icon={Activity} title="Focus Days" value={stats.focusSuccessDays} subtitle="Zero-based focus" />
-  <StatCard icon={AlertCircle} title="Doomscroll Slips" value={stats.doomscrollSlipDays} subtitle="Missed no-scroll rule" />
-  <StatCard icon={Crown} title="XP Level" value={`Lv ${stats.xpLevel}`} subtitle="50 checks per level" />
-</div>
                                                 <ProgressBar percentage={habit.completionRate} height="h-1.5" />
                                             </div>
                                         </div>
@@ -862,13 +835,12 @@ const xpLevel = Math.floor(totalHabitChecks / 50);
             };
 
             useEffect(() => {
-  const timeout = setTimeout(() => {
-    setLoading(false);
-  }, 1500);
+                const timeout = setTimeout(() => {
+                    setLoading(false);
+                }, 1500);
 
-  return () => clearTimeout(timeout);
-}, []);
-
+                return () => clearTimeout(timeout);
+            }, []);
 
             return (
                 <div className="max-w-5xl mx-auto px-4 py-8">
@@ -939,13 +911,10 @@ const xpLevel = Math.floor(totalHabitChecks / 50);
             );
         }
 
-        // Mount the App
         const root = createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 </body>
 </html>
-
-
 
 
