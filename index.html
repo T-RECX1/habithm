@@ -1,57 +1,1391 @@
-Vocal Trainer
-A single-file practice app for pitch accuracy, simple ear training, and steadier note holds. Best results come with headphones so the mic hears you instead of the app’s playback.
-Enable Mic
-Play Reference A4
-Stop Audio
-Mic not enabled Training range: C3 → C4 Signal: waiting
-Range setup
-Sing a comfortable low note, then press Set Low. Do the same for a comfortable high note. The app will keep note challenges inside that range.
-Low note
-High note
-Set Low From Voice
-Set High From Voice
-Reset
-Keep it realistic. Use the range where you can sing clearly and repeatably, not your absolute highest or lowest possible note.
-Live pitch
---
-No voice detected
-0 cents
-flat ← centered → sharp
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vocal Trainer</title>
+<style>
+  :root{
+    --bg:#0f1115;
+    --panel:#171a21;
+    --panel-2:#1e232c;
+    --text:#edf2f7;
+    --muted:#a5afbd;
+    --accent:#70b7ff;
+    --accent-2:#a58bff;
+    --good:#46d19d;
+    --warn:#ffb84d;
+    --bad:#ff6f6f;
+    --line:#2a3140;
+    --shadow:0 12px 30px rgba(0,0,0,.28);
+    --radius:18px;
+  }
 
-Closest note
---
-Stability
---
-Input level
---
-Current target
---
-No target yet
-Enable the mic, set a realistic range, then start with a random note or a three-note pattern.
-New Random Note
-Play Target
-Score My Note
-Practice modes
-Three-note pattern
-The app plays a short pattern inside your range. Then you sing it back. It listens for three stable notes and scores how close they were.
---
---
---
-New Pattern
-Play Pattern
-Sing Pattern
-No pattern loaded.
-Sustain / breath control
-Hold the target note as steadily as you can. The timer only counts while you stay near the pitch. This is not a full breathing diagnosis, but it does train steadiness.
-New Sustain Note
-Start Sustain
-Stop Sustain
-Target
---
-Current streak
-0.00 s
-Best streak
-0.00 s
-Tip: start with notes you can clearly hear and reproduce. Clean accuracy is more useful than forcing a wider range too early.
-Session history
-This stays in memory only while the page is open. If you want persistent progress later, the next step would be adding local storage.
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(112,183,255,.15), transparent 30%),
+      radial-gradient(circle at top right, rgba(165,139,255,.14), transparent 25%),
+      linear-gradient(180deg, #0c0f14, #10131a 30%, #0d1015);
+    color:var(--text);
+  }
+
+  .wrap{
+    max-width:1200px;
+    margin:0 auto;
+    padding:22px;
+  }
+
+  .hero{
+    display:grid;
+    grid-template-columns: 1.2fr .85fr;
+    gap:16px;
+    margin-bottom:16px;
+  }
+
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.015));
+    border:1px solid rgba(255,255,255,.07);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    backdrop-filter: blur(10px);
+  }
+
+  .hero-main{
+    padding:24px;
+  }
+
+  .hero-side{
+    padding:20px;
+  }
+
+  h1{
+    margin:0 0 10px;
+    font-size:clamp(1.8rem, 4vw, 2.7rem);
+    letter-spacing:-0.04em;
+  }
+
+  h2{
+    margin:0 0 12px;
+    font-size:1.05rem;
+    letter-spacing:-0.02em;
+  }
+
+  p{
+    margin:0;
+    color:var(--muted);
+    line-height:1.45;
+  }
+
+  .sub{
+    margin-top:6px;
+    max-width:720px;
+  }
+
+  .row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:center;
+  }
+
+  .controls{
+    margin-top:18px;
+  }
+
+  button, select{
+    border:none;
+    border-radius:14px;
+    padding:12px 14px;
+    font:inherit;
+  }
+
+  button{
+    background:linear-gradient(180deg, #2f7eea, #2265c4);
+    color:white;
+    font-weight:700;
+    cursor:pointer;
+    transition:transform .08s ease, opacity .2s ease, filter .2s ease;
+    box-shadow:0 8px 20px rgba(31,95,184,.28);
+  }
+
+  button:hover{filter:brightness(1.05)}
+  button:active{transform:translateY(1px)}
+  button.secondary{
+    background:linear-gradient(180deg, #2a3140, #1f2530);
+    box-shadow:none;
+    color:var(--text);
+    border:1px solid rgba(255,255,255,.06);
+  }
+  button.ghost{
+    background:transparent;
+    box-shadow:none;
+    color:var(--muted);
+    border:1px solid rgba(255,255,255,.08);
+  }
+  button.good{
+    background:linear-gradient(180deg, #28b87d, #189260);
+    box-shadow:0 8px 20px rgba(24,146,96,.22);
+  }
+
+  button:disabled{
+    opacity:.55;
+    cursor:not-allowed;
+    filter:none;
+  }
+
+  select{
+    width:100%;
+    background:#0e131b;
+    color:var(--text);
+    border:1px solid rgba(255,255,255,.08);
+    padding:12px;
+  }
+
+  .status-line{
+    margin-top:12px;
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+
+  .pill{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 12px;
+    border-radius:999px;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.07);
+    color:var(--muted);
+    font-size:.93rem;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:1.1fr .9fr;
+    gap:16px;
+  }
+
+  .stack{
+    display:grid;
+    gap:16px;
+  }
+
+  .panel{
+    padding:18px;
+  }
+
+  .live-grid{
+    display:grid;
+    grid-template-columns:1.1fr .9fr;
+    gap:16px;
+  }
+
+  .note-box{
+    padding:20px;
+    border-radius:18px;
+    background:linear-gradient(180deg, rgba(112,183,255,.08), rgba(255,255,255,.03));
+    border:1px solid rgba(112,183,255,.16);
+  }
+
+  .note-big{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+    margin-top:10px;
+  }
+
+  .note-big .name{
+    font-size:clamp(3rem, 10vw, 5.2rem);
+    line-height:1;
+    font-weight:800;
+    letter-spacing:-0.06em;
+  }
+
+  .note-big .freq{
+    color:var(--muted);
+    padding-bottom:8px;
+  }
+
+  .meter{
+    margin-top:16px;
+  }
+
+  .meter-label{
+    display:flex;
+    justify-content:space-between;
+    color:var(--muted);
+    font-size:.92rem;
+    margin-bottom:8px;
+  }
+
+  .tuner{
+    position:relative;
+    height:20px;
+    border-radius:999px;
+    background:linear-gradient(90deg, rgba(255,111,111,.18), rgba(255,184,77,.15) 25%, rgba(70,209,157,.18) 50%, rgba(255,184,77,.15) 75%, rgba(255,111,111,.18));
+    border:1px solid rgba(255,255,255,.08);
+    overflow:hidden;
+  }
+
+  .tuner::after{
+    content:"";
+    position:absolute;
+    left:50%;
+    top:0;
+    width:2px;
+    height:100%;
+    background:rgba(255,255,255,.65);
+    transform:translateX(-50%);
+  }
+
+  .needle{
+    position:absolute;
+    top:-4px;
+    width:10px;
+    height:28px;
+    border-radius:999px;
+    background:white;
+    box-shadow:0 0 18px rgba(255,255,255,.45);
+    transform:translateX(-50%);
+    left:50%;
+  }
+
+  .mini-stats{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    margin-top:14px;
+  }
+
+  .stat{
+    padding:12px;
+    border-radius:14px;
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.06);
+  }
+  .stat .label{
+    color:var(--muted);
+    font-size:.84rem;
+    margin-bottom:6px;
+  }
+  .stat .value{
+    font-weight:800;
+    font-size:1.02rem;
+    letter-spacing:-0.02em;
+  }
+
+  .target-box{
+    display:grid;
+    gap:12px;
+  }
+
+  .target-card{
+    padding:16px;
+    border-radius:18px;
+    background:linear-gradient(180deg, rgba(165,139,255,.08), rgba(255,255,255,.03));
+    border:1px solid rgba(165,139,255,.16);
+  }
+
+  .target-note{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:10px;
+  }
+
+  .target-note .big{
+    font-size:2.4rem;
+    font-weight:800;
+    letter-spacing:-0.05em;
+  }
+
+  .feedback{
+    padding:12px 14px;
+    border-radius:14px;
+    background:#0f141d;
+    border:1px solid rgba(255,255,255,.06);
+    min-height:48px;
+    color:var(--text);
+  }
+
+  .feedback.good{border-color:rgba(70,209,157,.4); color:#d7fff0}
+  .feedback.warn{border-color:rgba(255,184,77,.35)}
+  .feedback.bad{border-color:rgba(255,111,111,.35)}
+
+  .range-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin-top:12px;
+  }
+
+  .range-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
+  }
+
+  .mode-list{
+    display:grid;
+    gap:12px;
+  }
+
+  .mode-card{
+    padding:16px;
+    border-radius:16px;
+    border:1px solid rgba(255,255,255,.07);
+    background:rgba(255,255,255,.03);
+  }
+
+  .mode-card h3{
+    margin:0 0 6px;
+    font-size:1rem;
+  }
+  .mode-card p{
+    margin-bottom:12px;
+    font-size:.96rem;
+  }
+
+  .pattern-view{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin:10px 0 8px;
+  }
+
+  .pattern-chip{
+    min-width:60px;
+    text-align:center;
+    padding:12px 14px;
+    border-radius:14px;
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.06);
+    font-weight:800;
+    font-size:1.05rem;
+  }
+
+  .pattern-chip.active{
+    border-color:rgba(112,183,255,.4);
+    background:rgba(112,183,255,.12);
+  }
+
+  .history{
+    max-height:420px;
+    overflow:auto;
+    display:grid;
+    gap:10px;
+  }
+
+  .history-item{
+    padding:14px;
+    border-radius:14px;
+    background:rgba(255,255,255,.035);
+    border:1px solid rgba(255,255,255,.06);
+  }
+
+  .history-item .top{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:4px;
+  }
+
+  .history-item .type{
+    font-weight:700;
+  }
+
+  .score{
+    font-weight:800;
+  }
+
+  .score.good{color:var(--good)}
+  .score.warn{color:var(--warn)}
+  .score.bad{color:var(--bad)}
+
+  .small{
+    font-size:.92rem;
+    color:var(--muted);
+  }
+
+  .footer-note{
+    margin-top:16px;
+    font-size:.9rem;
+    color:var(--muted);
+  }
+
+  .kbd{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size:.9em;
+    padding:.12em .42em;
+    border-radius:8px;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.08);
+    color:#f5f7fa;
+  }
+
+  @media (max-width: 920px){
+    .hero, .grid, .live-grid{
+      grid-template-columns:1fr;
+    }
+  }
+
+  @media (max-width: 620px){
+    .mini-stats{
+      grid-template-columns:1fr;
+    }
+    .range-grid{
+      grid-template-columns:1fr;
+    }
+    .wrap{
+      padding:14px;
+    }
+    .hero-main, .hero-side, .panel{
+      padding:16px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <div class="card hero-main">
+      <h1>Vocal Trainer</h1>
+      <p class="sub">
+        A single-file practice app for pitch accuracy, simple ear training, and steadier note holds.
+        Best results come with headphones so the mic hears you instead of the app’s playback.
+      </p>
+      <div class="controls row">
+        <button id="startMicBtn">Enable Mic</button>
+        <button id="playReferenceBtn" class="secondary" disabled>Play Reference A4</button>
+        <button id="panicBtn" class="ghost">Stop Audio</button>
+      </div>
+      <div class="status-line">
+        <div class="pill" id="micStatus">Mic not enabled</div>
+        <div class="pill" id="rangeStatus">Training range: C3 → C4</div>
+        <div class="pill" id="noiseStatus">Signal: waiting</div>
+      </div>
+    </div>
+
+    <div class="card hero-side">
+      <h2>Range setup</h2>
+      <p>
+        Sing a comfortable low note, then press <span class="kbd">Set Low</span>. Do the same for a comfortable high note.
+        The app will keep note challenges inside that range.
+      </p>
+
+      <div class="range-grid">
+        <div>
+          <div class="small" style="margin-bottom:6px;">Low note</div>
+          <select id="lowSelect"></select>
+        </div>
+        <div>
+          <div class="small" style="margin-bottom:6px;">High note</div>
+          <select id="highSelect"></select>
+        </div>
+      </div>
+
+      <div class="range-actions">
+        <button id="setLowFromVoiceBtn" class="secondary" disabled>Set Low From Voice</button>
+        <button id="setHighFromVoiceBtn" class="secondary" disabled>Set High From Voice</button>
+        <button id="resetRangeBtn" class="ghost">Reset</button>
+      </div>
+
+      <p class="footer-note">
+        Keep it realistic. Use the range where you can sing clearly and repeatably, not your absolute highest or lowest possible note.
+      </p>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="stack">
+      <div class="card panel">
+        <div class="live-grid">
+          <div class="note-box">
+            <div class="small">Live pitch</div>
+            <div class="note-big">
+              <div class="name" id="liveNote">--</div>
+              <div class="freq" id="liveFreq">No voice detected</div>
+            </div>
+
+            <div class="meter">
+              <div class="meter-label">
+                <span id="centsLabel">0 cents</span>
+                <span>flat ← centered → sharp</span>
+              </div>
+              <div class="tuner">
+                <div class="needle" id="needle"></div>
+              </div>
+            </div>
+
+            <div class="mini-stats">
+              <div class="stat">
+                <div class="label">Closest note</div>
+                <div class="value" id="closestNote">--</div>
+              </div>
+              <div class="stat">
+                <div class="label">Stability</div>
+                <div class="value" id="stabilityValue">--</div>
+              </div>
+              <div class="stat">
+                <div class="label">Input level</div>
+                <div class="value" id="inputLevel">--</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="target-box">
+            <div class="target-card">
+              <div class="small">Current target</div>
+              <div class="target-note">
+                <div class="big" id="targetNote">--</div>
+                <div class="small" id="targetFreq">No target yet</div>
+              </div>
+            </div>
+
+            <div class="feedback" id="feedbackBox">
+              Enable the mic, set a realistic range, then start with a random note or a three-note pattern.
+            </div>
+
+            <div class="row">
+              <button id="randomNoteBtn" class="good" disabled>New Random Note</button>
+              <button id="playTargetBtn" class="secondary" disabled>Play Target</button>
+              <button id="scoreNoteBtn" class="secondary" disabled>Score My Note</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card panel">
+        <h2>Practice modes</h2>
+        <div class="mode-list">
+          <div class="mode-card">
+            <h3>Three-note pattern</h3>
+            <p>
+              The app plays a short pattern inside your range. Then you sing it back. It listens for three stable notes and scores how close they were.
+            </p>
+            <div class="pattern-view" id="patternTargetView">
+              <div class="pattern-chip">--</div>
+              <div class="pattern-chip">--</div>
+              <div class="pattern-chip">--</div>
+            </div>
+            <div class="row">
+              <button id="newPatternBtn" class="secondary" disabled>New Pattern</button>
+              <button id="playPatternBtn" class="secondary" disabled>Play Pattern</button>
+              <button id="recordPatternBtn" class="good" disabled>Sing Pattern</button>
+            </div>
+            <div class="small" id="patternStatus" style="margin-top:10px;">No pattern loaded.</div>
+          </div>
+
+          <div class="mode-card">
+            <h3>Sustain / breath control</h3>
+            <p>
+              Hold the target note as steadily as you can. The timer only counts while you stay near the pitch. This is not a full breathing diagnosis, but it does train steadiness.
+            </p>
+            <div class="row">
+              <button id="newSustainBtn" class="secondary" disabled>New Sustain Note</button>
+              <button id="startSustainBtn" class="good" disabled>Start Sustain</button>
+              <button id="stopSustainBtn" class="ghost" disabled>Stop Sustain</button>
+            </div>
+            <div class="mini-stats" style="margin-top:12px;">
+              <div class="stat">
+                <div class="label">Target</div>
+                <div class="value" id="sustainTarget">--</div>
+              </div>
+              <div class="stat">
+                <div class="label">Current streak</div>
+                <div class="value" id="sustainCurrent">0.00 s</div>
+              </div>
+              <div class="stat">
+                <div class="label">Best streak</div>
+                <div class="value" id="sustainBest">0.00 s</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="footer-note">
+          Tip: start with notes you can clearly hear and reproduce. Clean accuracy is more useful than forcing a wider range too early.
+        </p>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <h2>Session history</h2>
+      <div class="history" id="history"></div>
+      <p class="footer-note">
+        This stays in memory only while the page is open. If you want persistent progress later, the next step would be adding local storage.
+      </p>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const MIN_MIDI = 36; // C2
+  const MAX_MIDI = 84; // C6
+
+  const state = {
+    audioContext: null,
+    analyser: null,
+    micSource: null,
+    stream: null,
+    timeData: null,
+    started: false,
+    rafId: null,
+    detected: null,
+    smoothedFreq: null,
+    stability: 0,
+    lastFrameTime: null,
+    rangeLow: 48,   // C3
+    rangeHigh: 60,  // C4
+    targetMidi: null,
+    patternTarget: null,
+    patternListening: false,
+    patternSegments: [],
+    patternCurrentSegment: null,
+    patternLastVoiceTs: 0,
+    sustainTargetMidi: null,
+    sustainActive: false,
+    sustainCurrentMs: 0,
+    sustainBestMs: 0,
+    sustainGraceMs: 0,
+    activeOscillators: [],
+    history: []
+  };
+
+  const els = {
+    startMicBtn: document.getElementById('startMicBtn'),
+    playReferenceBtn: document.getElementById('playReferenceBtn'),
+    panicBtn: document.getElementById('panicBtn'),
+
+    micStatus: document.getElementById('micStatus'),
+    rangeStatus: document.getElementById('rangeStatus'),
+    noiseStatus: document.getElementById('noiseStatus'),
+
+    lowSelect: document.getElementById('lowSelect'),
+    highSelect: document.getElementById('highSelect'),
+    setLowFromVoiceBtn: document.getElementById('setLowFromVoiceBtn'),
+    setHighFromVoiceBtn: document.getElementById('setHighFromVoiceBtn'),
+    resetRangeBtn: document.getElementById('resetRangeBtn'),
+
+    liveNote: document.getElementById('liveNote'),
+    liveFreq: document.getElementById('liveFreq'),
+    centsLabel: document.getElementById('centsLabel'),
+    needle: document.getElementById('needle'),
+    closestNote: document.getElementById('closestNote'),
+    stabilityValue: document.getElementById('stabilityValue'),
+    inputLevel: document.getElementById('inputLevel'),
+
+    targetNote: document.getElementById('targetNote'),
+    targetFreq: document.getElementById('targetFreq'),
+    feedbackBox: document.getElementById('feedbackBox'),
+
+    randomNoteBtn: document.getElementById('randomNoteBtn'),
+    playTargetBtn: document.getElementById('playTargetBtn'),
+    scoreNoteBtn: document.getElementById('scoreNoteBtn'),
+
+    patternTargetView: document.getElementById('patternTargetView'),
+    newPatternBtn: document.getElementById('newPatternBtn'),
+    playPatternBtn: document.getElementById('playPatternBtn'),
+    recordPatternBtn: document.getElementById('recordPatternBtn'),
+    patternStatus: document.getElementById('patternStatus'),
+
+    newSustainBtn: document.getElementById('newSustainBtn'),
+    startSustainBtn: document.getElementById('startSustainBtn'),
+    stopSustainBtn: document.getElementById('stopSustainBtn'),
+    sustainTarget: document.getElementById('sustainTarget'),
+    sustainCurrent: document.getElementById('sustainCurrent'),
+    sustainBest: document.getElementById('sustainBest'),
+
+    history: document.getElementById('history')
+  };
+
+  function midiToFreq(midi){
+    return 440 * Math.pow(2, (midi - 69) / 12);
+  }
+
+  function freqToMidi(freq){
+    return 69 + 12 * Math.log2(freq / 440);
+  }
+
+  function midiToName(midi){
+    const note = NOTE_NAMES[(midi % 12 + 12) % 12];
+    const octave = Math.floor(midi / 12) - 1;
+    return note + octave;
+  }
+
+  function buildNoteSelects(){
+    const notes = [];
+    for(let midi = MIN_MIDI; midi <= MAX_MIDI; midi++){
+      notes.push(`<option value="${midi}">${midiToName(midi)}</option>`);
+    }
+    els.lowSelect.innerHTML = notes.join('');
+    els.highSelect.innerHTML = notes.join('');
+    els.lowSelect.value = String(state.rangeLow);
+    els.highSelect.value = String(state.rangeHigh);
+    syncRangeUI();
+  }
+
+  function syncRangeUI(){
+    let low = Number(els.lowSelect.value);
+    let high = Number(els.highSelect.value);
+    if(low > high){
+      [low, high] = [high, low];
+    }
+    state.rangeLow = low;
+    state.rangeHigh = high;
+    els.lowSelect.value = String(low);
+    els.highSelect.value = String(high);
+    els.rangeStatus.textContent = `Training range: ${midiToName(low)} → ${midiToName(high)}`;
+  }
+
+  function setFeedback(text, tone=''){
+    els.feedbackBox.textContent = text;
+    els.feedbackBox.className = 'feedback' + (tone ? ` ${tone}` : '');
+  }
+
+  function addHistory(type, score, detail){
+    const item = {type, score, detail, ts: new Date()};
+    state.history.unshift(item);
+    renderHistory();
+  }
+
+  function renderHistory(){
+    if(!state.history.length){
+      els.history.innerHTML = `<div class="history-item"><div class="small">No attempts yet.</div></div>`;
+      return;
+    }
+    els.history.innerHTML = state.history.slice(0, 40).map(item => {
+      const toneClass = item.score >= 85 ? 'good' : item.score >= 60 ? 'warn' : 'bad';
+      const when = item.ts.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+      return `
+        <div class="history-item">
+          <div class="top">
+            <div class="type">${item.type}</div>
+            <div class="score ${toneClass}">${Math.round(item.score)}/100</div>
+          </div>
+          <div class="small">${item.detail}</div>
+          <div class="small" style="margin-top:6px;">${when}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function updateTargetUI(){
+    if(state.targetMidi == null){
+      els.targetNote.textContent = '--';
+      els.targetFreq.textContent = 'No target yet';
+    }else{
+      els.targetNote.textContent = midiToName(state.targetMidi);
+      els.targetFreq.textContent = `${midiToFreq(state.targetMidi).toFixed(1)} Hz`;
+    }
+  }
+
+  function updateSustainUI(){
+    els.sustainTarget.textContent = state.sustainTargetMidi != null ? midiToName(state.sustainTargetMidi) : '--';
+    els.sustainCurrent.textContent = `${(state.sustainCurrentMs/1000).toFixed(2)} s`;
+    els.sustainBest.textContent = `${(state.sustainBestMs/1000).toFixed(2)} s`;
+    els.stopSustainBtn.disabled = !state.sustainActive;
+  }
+
+  function setButtonsEnabled(enabled){
+    [
+      els.playReferenceBtn, els.randomNoteBtn, els.playTargetBtn, els.scoreNoteBtn,
+      els.setLowFromVoiceBtn, els.setHighFromVoiceBtn, els.newPatternBtn,
+      els.playPatternBtn, els.recordPatternBtn, els.newSustainBtn, els.startSustainBtn
+    ].forEach(btn => btn.disabled = !enabled);
+  }
+
+  async function initAudio(){
+    if(state.started) return;
+
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      setFeedback('This browser does not support microphone input for this app.', 'bad');
+      return;
+    }
+
+    try{
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioCtx();
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: true,
+          autoGainControl: false
+        }
+      });
+
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 4096;
+      analyser.smoothingTimeConstant = 0.15;
+      source.connect(analyser);
+
+      state.audioContext = audioContext;
+      state.stream = stream;
+      state.micSource = source;
+      state.analyser = analyser;
+      state.timeData = new Float32Array(analyser.fftSize);
+      state.started = true;
+
+      els.micStatus.textContent = 'Mic enabled';
+      els.micStatus.style.color = '#d7fff0';
+      setButtonsEnabled(true);
+      setFeedback('Mic ready. Start with a random note, or sing a comfortable low/high note and store your range.');
+      startLoop();
+    }catch(err){
+      console.error(err);
+      setFeedback('Microphone access was blocked or failed. Try allowing the mic and reopening the file in a browser/app view that supports audio input.', 'bad');
+      els.micStatus.textContent = 'Mic failed';
+    }
+  }
+
+  function computeRMS(buffer){
+    let sum = 0;
+    for(let i = 0; i < buffer.length; i++){
+      sum += buffer[i] * buffer[i];
+    }
+    return Math.sqrt(sum / buffer.length);
+  }
+
+  function autoCorrelate(buffer, sampleRate){
+    const SIZE = buffer.length;
+    const rms = computeRMS(buffer);
+    if(rms < 0.008){
+      return {freq: null, clarity: 0, rms};
+    }
+
+    let bestOffset = -1;
+    let bestCorrelation = 0;
+    let foundGoodCorrelation = false;
+    const correlations = new Array(Math.floor(SIZE/2)).fill(0);
+
+    for(let offset = 8; offset < SIZE / 2; offset++){
+      let correlation = 0;
+      for(let i = 0; i < SIZE / 2; i++){
+        correlation += Math.abs(buffer[i] - buffer[i + offset]);
+      }
+      correlation = 1 - (correlation / (SIZE / 2));
+      correlations[offset] = correlation;
+
+      if(correlation > 0.9 && correlation > bestCorrelation){
+        foundGoodCorrelation = true;
+        bestCorrelation = correlation;
+        bestOffset = offset;
+      } else if(foundGoodCorrelation && correlation < bestCorrelation){
+        // refine around peak
+        const shift = (correlations[bestOffset + 1] - correlations[bestOffset - 1]) / correlations[bestOffset];
+        const estimated = sampleRate / (bestOffset + (8 * shift));
+        return {freq: estimated, clarity: bestCorrelation, rms};
+      }
+
+      if(correlation > bestCorrelation){
+        bestCorrelation = correlation;
+        bestOffset = offset;
+      }
+    }
+
+    if(bestOffset > 0 && bestCorrelation > 0.75){
+      return {freq: sampleRate / bestOffset, clarity: bestCorrelation, rms};
+    }
+    return {freq: null, clarity: bestCorrelation, rms};
+  }
+
+  function startLoop(){
+    cancelAnimationFrame(state.rafId);
+    state.lastFrameTime = performance.now();
+
+    const tick = (ts) => {
+      const dt = ts - (state.lastFrameTime || ts);
+      state.lastFrameTime = ts;
+
+      analyzeFrame(dt, ts);
+      state.rafId = requestAnimationFrame(tick);
+    };
+    state.rafId = requestAnimationFrame(tick);
+  }
+
+  function analyzeFrame(dt, ts){
+    if(!state.analyser) return;
+
+    state.analyser.getFloatTimeDomainData(state.timeData);
+    const result = autoCorrelate(state.timeData, state.audioContext.sampleRate);
+
+    const levelPct = Math.max(0, Math.min(100, Math.round(result.rms * 800)));
+    els.inputLevel.textContent = `${levelPct}%`;
+    els.noiseStatus.textContent = result.rms < 0.008 ? 'Signal: waiting' : `Signal: active (${levelPct}%)`;
+
+    if(result.freq && result.freq > 60 && result.freq < 1400){
+      state.smoothedFreq = state.smoothedFreq ? (state.smoothedFreq * 0.76 + result.freq * 0.24) : result.freq;
+      const midiFloat = freqToMidi(state.smoothedFreq);
+      const rounded = Math.round(midiFloat);
+      const cents = Math.round((midiFloat - rounded) * 100);
+      const name = midiToName(rounded);
+
+      const prior = state.detected?.midiRounded;
+      if(prior != null){
+        const delta = Math.abs(prior - rounded) + Math.abs((state.detected?.cents || 0) - cents) / 100;
+        state.stability = Math.max(0, Math.min(100, Math.round(100 - delta * 35)));
+      } else {
+        state.stability = 60;
+      }
+
+      state.detected = {
+        freq: state.smoothedFreq,
+        midiFloat,
+        midiRounded: rounded,
+        cents,
+        name,
+        clarity: result.clarity,
+        rms: result.rms
+      };
+
+      renderLivePitch();
+      updateTargetFeedback();
+      updatePatternCapture(ts);
+      updateSustain(dt, ts);
+    } else {
+      state.detected = null;
+      state.stability = Math.max(0, state.stability - 4);
+      els.liveNote.textContent = '--';
+      els.liveFreq.textContent = 'No voice detected';
+      els.closestNote.textContent = '--';
+      els.stabilityValue.textContent = '--';
+      els.centsLabel.textContent = '0 cents';
+      els.needle.style.left = '50%';
+      updatePatternCapture(ts);
+      updateSustain(dt, ts);
+    }
+  }
+
+  function renderLivePitch(){
+    if(!state.detected) return;
+    const cents = state.detected.cents;
+    const clamped = Math.max(-50, Math.min(50, cents));
+    const percent = 50 + clamped;
+    els.liveNote.textContent = state.detected.name;
+    els.liveFreq.textContent = `${state.detected.freq.toFixed(1)} Hz`;
+    els.closestNote.textContent = state.detected.name;
+    els.stabilityValue.textContent = `${state.stability}%`;
+    els.centsLabel.textContent = `${cents > 0 ? '+' : ''}${cents} cents`;
+    els.needle.style.left = `${percent}%`;
+  }
+
+  function updateTargetFeedback(){
+    if(state.targetMidi == null || !state.detected) return;
+    const diffCents = Math.round((state.detected.midiFloat - state.targetMidi) * 100);
+    const abs = Math.abs(diffCents);
+
+    if(abs <= 12){
+      setFeedback(`Locked in. You are very close to ${midiToName(state.targetMidi)}.`, 'good');
+    } else if(abs <= 30){
+      setFeedback(diffCents < 0 ? 'A little flat. Raise the pitch slightly.' : 'A little sharp. Relax the pitch slightly.', 'warn');
+    } else {
+      setFeedback(diffCents < 0 ? 'Too flat for the target note right now.' : 'Too sharp for the target note right now.', 'bad');
+    }
+  }
+
+  function ensureAudioContextRunning(){
+    if(state.audioContext && state.audioContext.state === 'suspended'){
+      return state.audioContext.resume();
+    }
+    return Promise.resolve();
+  }
+
+  function stopAllAudio(){
+    if(!state.activeOscillators.length) return;
+    const now = state.audioContext ? state.audioContext.currentTime : 0;
+    for(const {osc, gain} of state.activeOscillators){
+      try{
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setValueAtTime(gain.gain.value || 0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+        osc.stop(now + 0.06);
+      }catch(e){}
+    }
+    state.activeOscillators = [];
+  }
+
+  async function playToneForMidi(midi, duration=0.8, delay=0){
+    if(!state.audioContext) return;
+    await ensureAudioContextRunning();
+
+    const osc = state.audioContext.createOscillator();
+    const gain = state.audioContext.createGain();
+    const filter = state.audioContext.createBiquadFilter();
+
+    filter.type = 'lowpass';
+    filter.frequency.value = 1800;
+
+    osc.type = 'triangle';
+    osc.frequency.value = midiToFreq(midi);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(state.audioContext.destination);
+
+    const start = state.audioContext.currentTime + delay;
+    const end = start + duration;
+
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.18, start + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.11, start + 0.16);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+
+    osc.start(start);
+    osc.stop(end + 0.02);
+
+    const ref = {osc, gain};
+    state.activeOscillators.push(ref);
+    osc.onended = () => {
+      state.activeOscillators = state.activeOscillators.filter(x => x !== ref);
+    };
+  }
+
+  function randomMidiInRange(){
+    return Math.floor(Math.random() * (state.rangeHigh - state.rangeLow + 1)) + state.rangeLow;
+  }
+
+  function newRandomTarget(){
+    if(state.rangeHigh < state.rangeLow) syncRangeUI();
+    state.targetMidi = randomMidiInRange();
+    updateTargetUI();
+    setFeedback(`Target note loaded: ${midiToName(state.targetMidi)}. Play it, then sing it back.`, '');
+  }
+
+  function scoreCurrentNote(){
+    if(state.targetMidi == null){
+      setFeedback('Load a target note first.', 'bad');
+      return;
+    }
+    if(!state.detected){
+      setFeedback('No stable voice detected yet. Sing the note first.', 'bad');
+      return;
+    }
+
+    const diffCents = Math.abs((state.detected.midiFloat - state.targetMidi) * 100);
+    const stabilityBonus = state.stability * 0.18;
+    let score = 100 - diffCents * 1.25 + stabilityBonus;
+    score = Math.max(0, Math.min(100, score));
+
+    const detail = `Target ${midiToName(state.targetMidi)}, you sang ${state.detected.name} at ${Math.round(diffCents)} cents off with ${state.stability}% stability.`;
+    addHistory('Single note', score, detail);
+
+    if(score >= 85){
+      setFeedback(`Nice. That was accurate and steady. Score: ${Math.round(score)}.`, 'good');
+    } else if(score >= 60){
+      setFeedback(`Close, but not fully centered. Score: ${Math.round(score)}.`, 'warn');
+    } else {
+      setFeedback(`That one was off enough to be worth repeating. Score: ${Math.round(score)}.`, 'bad');
+    }
+  }
+
+  function renderPatternTarget(activeIndex=-1){
+    if(!state.patternTarget){
+      els.patternTargetView.innerHTML = `
+        <div class="pattern-chip">--</div>
+        <div class="pattern-chip">--</div>
+        <div class="pattern-chip">--</div>
+      `;
+      return;
+    }
+    els.patternTargetView.innerHTML = state.patternTarget.map((m, i) =>
+      `<div class="pattern-chip ${i === activeIndex ? 'active' : ''}">${midiToName(m)}</div>`
+    ).join('');
+  }
+
+  function makePattern(){
+    const span = Math.max(3, state.rangeHigh - state.rangeLow);
+    const base = Math.floor(Math.random() * (span + 1)) + state.rangeLow;
+    const intervals = [
+      [0, 2, 4], [0, 2, 0], [0, -2, 0], [0, 1, 3], [0, -1, -3], [0, 3, 1]
+    ];
+    const chosen = intervals[Math.floor(Math.random() * intervals.length)];
+    let pattern = chosen.map(v => Math.max(state.rangeLow, Math.min(state.rangeHigh, base + v)));
+    if(new Set(pattern).size < 2){
+      pattern = [base, Math.min(state.rangeHigh, base + 2), base];
+    }
+    state.patternTarget = pattern;
+    renderPatternTarget();
+    els.patternStatus.textContent = `Pattern ready: ${pattern.map(midiToName).join(' • ')}`;
+  }
+
+  async function playPattern(){
+    if(!state.patternTarget) return;
+    renderPatternTarget(0);
+    for(let i = 0; i < state.patternTarget.length; i++){
+      renderPatternTarget(i);
+      await playToneForMidi(state.patternTarget[i], 0.5, 0);
+      await wait(620);
+    }
+    renderPatternTarget(-1);
+  }
+
+  function wait(ms){
+    return new Promise(r => setTimeout(r, ms));
+  }
+
+  function startPatternListening(){
+    if(!state.patternTarget){
+      setFeedback('Load a pattern first.', 'bad');
+      return;
+    }
+    state.patternListening = true;
+    state.patternSegments = [];
+    state.patternCurrentSegment = null;
+    state.patternLastVoiceTs = performance.now();
+    els.patternStatus.textContent = 'Listening... sing three clear notes with a tiny space between them.';
+    setFeedback('Pattern listening started. Use three clean pitches instead of sliding too much.', '');
+  }
+
+  function finalizePatternSegment(seg){
+    if(!seg) return;
+    if(seg.frames < 3 || seg.durationMs < 160) return;
+    const avgMidiFloat = seg.sumMidi / seg.frames;
+    const midiRounded = Math.round(avgMidiFloat);
+    const avgCents = (avgMidiFloat - midiRounded) * 100;
+
+    const last = state.patternSegments[state.patternSegments.length - 1];
+    if(last && Math.abs(last.midiRounded - midiRounded) === 0 && Math.abs(last.avgCents - avgCents) < 30){
+      return;
+    }
+
+    state.patternSegments.push({
+      midiRounded,
+      avgMidiFloat,
+      avgCents,
+      durationMs: seg.durationMs
+    });
+
+    if(state.patternSegments.length >= 3){
+      finishPatternListening();
+    }
+  }
+
+  function updatePatternCapture(ts){
+    if(!state.patternListening) return;
+
+    const voiced = !!state.detected && state.detected.rms > 0.009;
+    if(voiced){
+      state.patternLastVoiceTs = ts;
+      const midiFloat = state.detected.midiFloat;
+      if(!state.patternCurrentSegment){
+        state.patternCurrentSegment = {
+          startTs: ts,
+          lastTs: ts,
+          sumMidi: midiFloat,
+          frames: 1
+        };
+      } else {
+        const currentAvg = state.patternCurrentSegment.sumMidi / state.patternCurrentSegment.frames;
+        const jump = Math.abs(currentAvg - midiFloat);
+        if(jump < 0.7){
+          state.patternCurrentSegment.lastTs = ts;
+          state.patternCurrentSegment.sumMidi += midiFloat;
+          state.patternCurrentSegment.frames += 1;
+        } else {
+          state.patternCurrentSegment.durationMs = state.patternCurrentSegment.lastTs - state.patternCurrentSegment.startTs;
+          finalizePatternSegment(state.patternCurrentSegment);
+          state.patternCurrentSegment = {
+            startTs: ts,
+            lastTs: ts,
+            sumMidi: midiFloat,
+            frames: 1
+          };
+        }
+      }
+    } else {
+      if(state.patternCurrentSegment && (ts - state.patternCurrentSegment.lastTs > 140)){
+        state.patternCurrentSegment.durationMs = state.patternCurrentSegment.lastTs - state.patternCurrentSegment.startTs;
+        finalizePatternSegment(state.patternCurrentSegment);
+        state.patternCurrentSegment = null;
+      }
+
+      if(ts - state.patternLastVoiceTs > 6500 && state.patternSegments.length > 0){
+        finishPatternListening();
+      }
+    }
+
+    const count = state.patternSegments.length + (state.patternCurrentSegment ? 1 : 0);
+    els.patternStatus.textContent = `Listening... captured ${Math.min(count, 3)}/3 note${count === 1 ? '' : 's'}.`;
+  }
+
+  function finishPatternListening(){
+    if(state.patternCurrentSegment){
+      state.patternCurrentSegment.durationMs = state.patternCurrentSegment.lastTs - state.patternCurrentSegment.startTs;
+      finalizePatternSegment(state.patternCurrentSegment);
+      state.patternCurrentSegment = null;
+    }
+
+    state.patternListening = false;
+    const heard = state.patternSegments.slice(0, 3);
+    if(heard.length < 3){
+      els.patternStatus.textContent = 'Not enough clean notes were captured. Try again with clearer separation.';
+      setFeedback('The app did not hear three stable notes. Try using slightly more separation between notes.', 'bad');
+      return;
+    }
+
+    let score = 0;
+    let detailParts = [];
+    for(let i = 0; i < 3; i++){
+      const target = state.patternTarget[i];
+      const sung = heard[i];
+      const centsOff = Math.abs((sung.avgMidiFloat - target) * 100);
+      const notePenalty = Math.abs(sung.midiRounded - target) * 18;
+      const partScore = Math.max(0, 34 - centsOff * 0.22 - notePenalty);
+      score += partScore;
+      detailParts.push(`${midiToName(target)}→${midiToName(sung.midiRounded)}`);
+    }
+
+    score = Math.max(0, Math.min(100, score));
+    els.patternStatus.textContent = `Heard: ${heard.map(x => midiToName(x.midiRounded)).join(' • ')}`;
+    addHistory('Three-note pattern', score, `${detailParts.join(', ')}.`);
+
+    if(score >= 82){
+      setFeedback(`Good pattern match. Score: ${Math.round(score)}.`, 'good');
+    } else if(score >= 58){
+      setFeedback(`Pattern was partly right, but not fully clean. Score: ${Math.round(score)}.`, 'warn');
+    } else {
+      setFeedback(`Pattern missed enough that you should repeat it. Score: ${Math.round(score)}.`, 'bad');
+    }
+  }
+
+  function newSustainTarget(){
+    state.sustainTargetMidi = randomMidiInRange();
+    state.targetMidi = state.sustainTargetMidi;
+    state.sustainCurrentMs = 0;
+    state.sustainBestMs = 0;
+    updateTargetUI();
+    updateSustainUI();
+    setFeedback(`Sustain target loaded: ${midiToName(state.sustainTargetMidi)}. Start sustain mode when ready.`, '');
+  }
+
+  function startSustain(){
+    if(state.sustainTargetMidi == null){
+      newSustainTarget();
+    }
+    state.sustainActive = true;
+    state.sustainCurrentMs = 0;
+    state.sustainBestMs = 0;
+    state.sustainGraceMs = 0;
+    updateSustainUI();
+    setFeedback(`Sustain started. Hold ${midiToName(state.sustainTargetMidi)} as steadily as you can.`, '');
+  }
+
+  function stopSustain(){
+    if(!state.sustainActive) return;
+    state.sustainActive = false;
+    const score = Math.max(0, Math.min(100, (state.sustainBestMs / 35) + 25));
+    addHistory('Sustain', score, `Held ${midiToName(state.sustainTargetMidi)} with a best steady streak of ${(state.sustainBestMs/1000).toFixed(2)} s.`);
+    if(score >= 80){
+      setFeedback(`Strong hold. Best steady streak: ${(state.sustainBestMs/1000).toFixed(2)} s.`, 'good');
+    } else if(score >= 60){
+      setFeedback(`Decent hold. Best steady streak: ${(state.sustainBestMs/1000).toFixed(2)} s.`, 'warn');
+    } else {
+      setFeedback(`Short or unstable hold. Best steady streak: ${(state.sustainBestMs/1000).toFixed(2)} s.`, 'bad');
+    }
+    updateSustainUI();
+  }
+
+  function updateSustain(dt, ts){
+    if(!state.sustainActive || state.sustainTargetMidi == null){
+      return;
+    }
+
+    let good = false;
+    if(state.detected){
+      const diffCents = Math.abs((state.detected.midiFloat - state.sustainTargetMidi) * 100);
+      good = diffCents <= 28 && state.stability >= 45;
+    }
+
+    if(good){
+      state.sustainCurrentMs += dt;
+      state.sustainGraceMs = 0;
+    } else {
+      state.sustainGraceMs += dt;
+      if(state.sustainGraceMs > 120){
+        state.sustainCurrentMs = 0;
+      }
+    }
+
+    state.sustainBestMs = Math.max(state.sustainBestMs, state.sustainCurrentMs);
+    updateSustainUI();
+  }
+
+  function setRangeFromVoice(which){
+    if(!state.detected){
+      setFeedback('No stable note detected yet. Sing first, then store the range note.', 'bad');
+      return;
+    }
+    const midi = Math.round(state.detected.midiFloat);
+    if(which === 'low'){
+      els.lowSelect.value = String(Math.min(midi, state.rangeHigh));
+    } else {
+      els.highSelect.value = String(Math.max(midi, state.rangeLow));
+    }
+    syncRangeUI();
+    setFeedback(`${which === 'low' ? 'Low' : 'High'} range note saved as ${midiToName(midi)}.`, 'good');
+  }
+
+  function resetRange(){
+    state.rangeLow = 48;
+    state.rangeHigh = 60;
+    els.lowSelect.value = '48';
+    els.highSelect.value = '60';
+    syncRangeUI();
+    setFeedback('Range reset to C3 → C4.', '');
+  }
+
+  // Events
+  els.startMicBtn.addEventListener('click', initAudio);
+  els.playReferenceBtn.addEventListener('click', () => playToneForMidi(69, 0.8));
+  els.panicBtn.addEventListener('click', stopAllAudio);
+
+  els.lowSelect.addEventListener('change', syncRangeUI);
+  els.highSelect.addEventListener('change', syncRangeUI);
+  els.setLowFromVoiceBtn.addEventListener('click', () => setRangeFromVoice('low'));
+  els.setHighFromVoiceBtn.addEventListener('click', () => setRangeFromVoice('high'));
+  els.resetRangeBtn.addEventListener('click', resetRange);
+
+  els.randomNoteBtn.addEventListener('click', newRandomTarget);
+  els.playTargetBtn.addEventListener('click', () => {
+    if(state.targetMidi == null){
+      setFeedback('Load a target note first.', 'bad');
+      return;
+    }
+    playToneForMidi(state.targetMidi, 0.8);
+  });
+  els.scoreNoteBtn.addEventListener('click', scoreCurrentNote);
+
+  els.newPatternBtn.addEventListener('click', makePattern);
+  els.playPatternBtn.addEventListener('click', async () => {
+    if(!state.patternTarget){
+      setFeedback('Load a pattern first.', 'bad');
+      return;
+    }
+    await playPattern();
+  });
+  els.recordPatternBtn.addEventListener('click', startPatternListening);
+
+  els.newSustainBtn.addEventListener('click', newSustainTarget);
+  els.startSustainBtn.addEventListener('click', startSustain);
+  els.stopSustainBtn.addEventListener('click', stopSustain);
+
+  // Initial UI
+  buildNoteSelects();
+  renderHistory();
+  updateTargetUI();
+  updateSustainUI();
+  renderPatternTarget();
+})();
+</script>
+</body>
+</html>
