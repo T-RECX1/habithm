@@ -859,44 +859,70 @@
   function autoCorrelate(buffer, sampleRate){
     const SIZE = buffer.length;
     const rms = computeRMS(buffer);
-    if(rms < 0.008){
+    if(rms < 0.005){
       return {freq: null, clarity: 0, rms};
     }
 
-    let bestOffset = -1;
-    let bestCorrelation = 0;
-    let foundGoodCorrelation = false;
-    const correlations = new Array(Math.floor(SIZE/2)).fill(0);
+    let start = 0;
+    let end = SIZE - 1;
+    const trimThreshold = 0.02;
 
-    for(let offset = 8; offset < SIZE / 2; offset++){
-      let correlation = 0;
-      for(let i = 0; i < SIZE / 2; i++){
-        correlation += Math.abs(buffer[i] - buffer[i + offset]);
+    while(start < SIZE / 2 && Math.abs(buffer[start]) < trimThreshold) start++;
+    while(end > SIZE / 2 && Math.abs(buffer[end]) < trimThreshold) end--;
+
+    if(end - start < 32){
+      return {freq: null, clarity: 0, rms};
+    }
+
+    const trimmed = buffer.slice(start, end + 1);
+    const trimmedSize = trimmed.length;
+    const correlations = new Float32Array(trimmedSize);
+
+    for(let offset = 0; offset < trimmedSize; offset++){
+      let sum = 0;
+      for(let i = 0; i < trimmedSize - offset; i++){
+        sum += trimmed[i] * trimmed[i + offset];
       }
-      correlation = 1 - (correlation / (SIZE / 2));
-      correlations[offset] = correlation;
+      correlations[offset] = sum;
+    }
 
-      if(correlation > 0.9 && correlation > bestCorrelation){
-        foundGoodCorrelation = true;
-        bestCorrelation = correlation;
-        bestOffset = offset;
-      } else if(foundGoodCorrelation && correlation < bestCorrelation){
-        // refine around peak
-        const shift = (correlations[bestOffset + 1] - correlations[bestOffset - 1]) / correlations[bestOffset];
-        const estimated = sampleRate / (bestOffset + (8 * shift));
-        return {freq: estimated, clarity: bestCorrelation, rms};
-      }
+    let valley = 0;
+    while(valley + 1 < trimmedSize && correlations[valley] > correlations[valley + 1]){
+      valley++;
+    }
 
-      if(correlation > bestCorrelation){
-        bestCorrelation = correlation;
-        bestOffset = offset;
+    let peak = valley;
+    let best = -Infinity;
+    for(let i = valley; i < trimmedSize; i++){
+      if(correlations[i] > best){
+        best = correlations[i];
+        peak = i;
       }
     }
 
-    if(bestOffset > 0 && bestCorrelation > 0.75){
-      return {freq: sampleRate / bestOffset, clarity: bestCorrelation, rms};
+    if(peak <= 0 || peak >= trimmedSize - 1){
+      if(peak <= 0){
+        return {freq: null, clarity: 0, rms};
+      }
+      return {freq: sampleRate / peak, clarity: Math.min(1, best / correlations[0]), rms};
     }
-    return {freq: null, clarity: bestCorrelation, rms};
+
+    const x1 = correlations[peak - 1];
+    const x2 = correlations[peak];
+    const x3 = correlations[peak + 1];
+    const a = (x1 + x3 - 2 * x2) / 2;
+    const b = (x3 - x1) / 2;
+    const refinedPeak = a ? (peak - b / (2 * a)) : peak;
+
+    if(!isFinite(refinedPeak) || refinedPeak <= 0){
+      return {freq: null, clarity: 0, rms};
+    }
+
+    return {
+      freq: sampleRate / refinedPeak,
+      clarity: Math.min(1, best / correlations[0]),
+      rms
+    };
   }
 
   function startLoop(){
@@ -923,7 +949,7 @@
     els.inputLevel.textContent = `${levelPct}%`;
     els.noiseStatus.textContent = result.rms < 0.008 ? 'Signal: waiting' : `Signal: active (${levelPct}%)`;
 
-    if(result.freq && result.freq > 60 && result.freq < 1400){
+    if(result.freq && result.freq > 70 && result.freq < 1200){
       state.smoothedFreq = state.smoothedFreq ? (state.smoothedFreq * 0.76 + result.freq * 0.24) : result.freq;
       const midiFloat = freqToMidi(state.smoothedFreq);
       const rounded = Math.round(midiFloat);
